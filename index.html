@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}img{max-width:100%}body{margin:0}</style>
+<title>おかしならべ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<style>
+/* Layout: strawberry-milk tablecloth — three sweet "name cards" on top, a chocolate-bar board, the hand tray under it. Deliberately single light look. */
+:root{
+  color-scheme:light;
+  --bg:#ffe3ec; --dot:#ffd0df; --card:#fffaf6; --ink:#5b2f20; --muted:#a3695b;
+  --choc:#6b3a25; --choc2:#56301e; --cell:#8a5134; --cell2:#9d6141;
+  --p0:#ff6f9f; --p1:#43b2f5; --p2:#6cc94e; --gold:#ffbf2f; --cream:#fff6ee;
+  --display:"Mochiy Pop One","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  --body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+}
+html,body{height:100%}
+body{margin:0;padding:0 16px;color:var(--ink);font-family:var(--body);background-color:var(--bg);
+  background-image:radial-gradient(var(--dot) 18%,transparent 19%),radial-gradient(var(--dot) 18%,transparent 19%);
+  background-size:34px 34px;background-position:0 0,17px 17px}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+.wrap{max-width:540px;margin:0 auto;padding-block:16px 32px;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:400;font-size:1.9rem;margin:0;letter-spacing:.04em;color:var(--p0);
+  text-shadow:2px 2px 0 var(--cream),4px 4px 0 #f7b3c8;text-wrap:balance}
+header small{color:var(--muted);font-weight:700;font-size:.85rem}
+
+.players{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pl{background:var(--card);border-radius:16px;padding:8px 9px 9px;display:flex;flex-direction:column;gap:5px;min-width:0;position:relative;
+  box-shadow:0 3px 0 #f0b9c9;border:2.5px solid transparent;transition:transform .2s,border-color .2s}
+.pl.on{border-color:var(--c);transform:translateY(-3px) rotate(-1deg);box-shadow:0 5px 0 var(--c)}
+.pl .top{display:flex;align-items:center;gap:5px;min-width:0}
+.pl .icon{width:30px;height:30px;flex:none}
+.pl input{min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:700 .92rem var(--body);padding:2px 0}
+.pl input:focus{outline:2px dashed var(--c);outline-offset:2px;border-radius:4px}
+.jar{display:flex;gap:3px;flex-wrap:wrap}
+.jar i{width:14px;height:14px;border-radius:50%;background:#f3e2da;box-shadow:inset 0 1px 2px #0001;display:grid;place-items:center}
+.jar i.f{background:var(--c);box-shadow:0 0 0 2px var(--cream),0 0 0 3px var(--c)}
+.jar i.f.new{animation:boing .6s cubic-bezier(.2,1.8,.4,1)}
+.meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);font-weight:700;gap:4px;flex-wrap:wrap}
+.chip{font:700 .72rem var(--body);border:2px solid #ecd0c6;background:var(--cream);color:var(--muted);border-radius:999px;padding:2px 8px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
+.chip:focus-visible{outline:3px solid var(--c);outline-offset:2px}
+
+.status{font-family:var(--display);font-size:1rem;text-align:center;min-height:1.6em;line-height:1.6}
+.status b{color:var(--c);font-weight:400}
+.status .sub{font-family:var(--body);font-weight:700;font-size:.8rem;color:var(--muted);margin-left:4px}
+
+.stage{position:relative}
+.board{display:grid;gap:6px;padding:10px;aspect-ratio:1;width:100%;max-width:100%;box-sizing:border-box;border-radius:20px;
+  background:linear-gradient(160deg,var(--choc),var(--choc2));box-shadow:0 6px 0 #3e2014,0 14px 30px -10px #5b2f2066}
+.cell{position:relative;border-radius:22%;background:linear-gradient(150deg,var(--cell2),var(--cell));
+  box-shadow:inset 0 3px 0 #ffffff22,inset 0 -4px 0 #0000002a;display:grid;place-items:center;touch-action:none}
+.cell.tgt::before{content:"";width:26%;height:26%;border-radius:50%;background:#fff8;box-shadow:0 0 0 4px #ffffff33;animation:pulse 1s infinite}
+.cell.tgt:hover,.cell.tgt.over{background:linear-gradient(150deg,#c4825c,#a96a48)}
+.cell.swaptgt{box-shadow:inset 0 0 0 3px var(--gold),0 0 12px var(--gold)}
+.cell.fixed{box-shadow:inset 0 0 0 3px var(--gold),inset 0 -4px 0 #0000002a}
+.cell.fixed::after{content:"固";position:absolute;top:-6px;right:-6px;width:19px;height:19px;border-radius:50%;background:var(--gold);color:var(--ink);font:400 10px/19px var(--display);text-align:center;box-shadow:0 2px 0 #0003;z-index:2}
+.cell.fixed.stamp::after{animation:stamp .45s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp{0%{transform:scale(3) rotate(-30deg);opacity:0}100%{transform:none;opacity:1}}
+.cell.swaptgt::after{content:"⇄";position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--ink);font:700 13px/20px var(--body);text-align:center;z-index:2}
+.cell.swaptgt.over{background:linear-gradient(150deg,#d39a4a,#b77b35)}
+.sweet{width:84%;height:84%;overflow:visible;color:var(--c);filter:drop-shadow(0 3px 0 #0000002e);pointer-events:none}
+.pc{width:100%;height:100%;display:grid;place-items:center;border-radius:22%}
+.pc.mine{cursor:grab}
+.pc.mine:hover .sweet{transform:translateY(-3px) rotate(-4deg);transition:transform .15s}
+.pc.sel .sweet{transform:translateY(-6px) scale(1.12);filter:drop-shadow(0 10px 4px #0000003a);animation:wiggle .6s infinite}
+.pc.lift .sweet{opacity:.25}
+.pc.land .sweet{animation:squish .45s cubic-bezier(.2,1.6,.4,1)}
+.pc.eat .sweet{animation:eat .55s ease-in forwards}
+.cell.glow{box-shadow:inset 0 0 0 3px #fff,0 0 18px #fff}
+@keyframes squish{0%{transform:scale(1.25,.7)}40%{transform:scale(.9,1.15)}100%{transform:none}}
+@keyframes wiggle{0%,100%{rotate:-4deg}50%{rotate:4deg}}
+@keyframes eat{0%{transform:scale(1)}30%{transform:scale(1.25) rotate(-8deg)}60%{transform:scale(1.15) rotate(8deg)}100%{transform:scale(0) rotate(30deg);opacity:0}}
+@keyframes pulse{50%{transform:scale(.7);opacity:.6}}
+@keyframes boing{0%{transform:scale(.2)}100%{transform:none}}
+
+.tray{background:var(--card);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 3px 0 #f0b9c9;min-height:58px}
+.tray .lbl{font-weight:700;font-size:.8rem;color:var(--muted);flex:none}
+.hand{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.hand .h{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#f8e9e1;touch-action:none}
+.hand .h.mine{cursor:grab}
+.hand .h.mine:hover .sweet{transform:translateY(-3px) rotate(4deg)}
+.hand .h.sel{background:#ffe0ea;box-shadow:0 0 0 3px var(--c)}
+.hand .h.sel .sweet{animation:wiggle .6s infinite;transform:scale(1.1)}
+.tray .note{font-size:.78rem;color:var(--muted);font-weight:700}
+.swaps{font-size:.75rem;font-weight:700;color:var(--ink);background:#fff1c9;border-radius:999px;padding:3px 9px;flex:none}
+.swaps.used{opacity:.4}
+
+.ghost{position:fixed;left:0;top:0;width:64px;height:64px;pointer-events:none;z-index:40;margin:-32px 0 0 -32px;display:grid;place-items:center}
+.ghost .sweet{width:100%;height:100%;filter:drop-shadow(0 12px 6px #00000040);transform:rotate(-8deg) scale(1.15)}
+
+.result{position:absolute;inset:0;display:grid;place-items:center;z-index:5;background:#ffe3ecc0;border-radius:20px}
+.result .card{background:var(--card);border-radius:20px;padding:18px 22px;min-width:min(280px,82%);display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 0 #f0b9c9,0 20px 40px -10px #5b2f2055;animation:pop .55s cubic-bezier(.2,1.6,.4,1)}
+.result h2{font-family:var(--display);font-weight:400;margin:0;text-align:center;font-size:1.4rem;color:var(--p0)}
+.result .big{width:84px;height:84px;margin:0 auto;animation:wiggle 1s infinite}
+.rank{display:grid;grid-template-columns:auto 28px 1fr auto;gap:6px 10px;align-items:center}
+.rank .n{font-family:var(--display);color:var(--muted);font-size:.85rem}
+.rank .nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank .p{font-family:var(--display);font-size:1rem;font-variant-numeric:tabular-nums}
+.rank svg{width:28px;height:28px}
+@keyframes pop{0%{transform:scale(.3) rotate(-10deg);opacity:0}100%{transform:none;opacity:1}}
+
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls label{font-size:.82rem;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+select,button.btn{font:700 .88rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:12px;padding:6px 12px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
+button.btn.primary{background:var(--p0);border-color:var(--p0);color:#fff;box-shadow:0 3px 0 #d94f80}
+button.btn:active{transform:translateY(2px);box-shadow:none}
+button.btn:disabled{opacity:.4;cursor:default}
+button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+.spacer{flex:1}
+.rules{background:var(--card);border-radius:16px;padding:12px 14px 12px 30px;margin:0;font-size:.82rem;line-height:1.75;color:var(--ink);box-shadow:0 3px 0 #f0b9c9}
+.rules b{color:var(--p0)}
+@media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.hand .h{width:38px;height:38px}h1{font-size:1.6rem}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+</style>
+
+</head>
+<body>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="wrap">
+  <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
+  <div class="players" id="players"></div>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="stage" id="stage">
+    <div class="board" id="board" role="grid" aria-label="盤面"></div>
+    <div class="result" id="result" hidden></div>
+  </div>
+  <div class="tray" id="tray"></div>
+  <div class="controls">
+    <label for="size">盤
+      <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option></select>
+    </label>
+    <label for="need">並べる数
+      <select id="need"><option value="3">3つ</option><option value="4" selected>4つ</option></select>
+    </label>
+    <label for="target">目標
+      <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
+    </label>
+    <span class="spacer"></span>
+    <button class="btn" id="sound" type="button" aria-pressed="true">音 ON</button>
+    <button class="btn" id="undo" type="button">1手戻す</button>
+    <button class="btn primary" id="reset" type="button">新しいゲーム</button>
+  </div>
+  <ol class="rules">
+    <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
+    <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
+    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえで動いた<b>2つのお菓子は固定</b>になり、もう誰も入れかえられません（空いているマスへ動かすのはOK）。</li>
+    <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
+  </ol>
+</div>
+
+<script>
+const PC=['--p0','--p1','--p2'],SWEET=['マカロン','キャンディ','ゼリー'];
+const face=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
+  <path d="M45.5 ${y+5} Q50 ${y+9} 54.5 ${y+5}" stroke="#5b2f20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <ellipse cx="33" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/><ellipse cx="67" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/>`;
+const ART=[
+ // いちごマカロン
+ `<path d="M12 60 Q12 82 50 82 Q88 82 88 60 Z" fill="currentColor"/><rect x="13" y="55" width="74" height="9" rx="4.5" fill="currentColor"/><rect x="13" y="55" width="74" height="9" rx="4.5" fill="#000" opacity=".13"/>
+  <rect x="11" y="46" width="78" height="11" rx="5.5" fill="#fff6ee"/>
+  <path d="M12 47 Q12 16 50 16 Q88 16 88 47 Z" fill="currentColor"/><rect x="13" y="41" width="74" height="8" rx="4" fill="currentColor"/><rect x="13" y="41" width="74" height="8" rx="4" fill="#000" opacity=".13"/>
+  <ellipse cx="33" cy="25" rx="9" ry="3.6" fill="#fff" opacity=".6"/>${face(31)}`,
+ // ソーダキャンディ
+ `<path d="M30 50 L6 30 Q1 50 6 70 Z" fill="currentColor" opacity=".55"/><path d="M70 50 L94 30 Q99 50 94 70 Z" fill="currentColor" opacity=".55"/>
+  <circle cx="27" cy="50" r="5" fill="currentColor"/><circle cx="73" cy="50" r="5" fill="currentColor"/>
+  <circle cx="50" cy="50" r="27" fill="currentColor"/>
+  <path d="M26 40 Q38 30 50 34 Q62 38 74 32" stroke="#fff" stroke-width="5" fill="none" opacity=".55" stroke-linecap="round"/>
+  <path d="M25 63 Q37 68 50 64 Q63 60 74 66" stroke="#fff" stroke-width="5" fill="none" opacity=".45" stroke-linecap="round"/>
+  <ellipse cx="38" cy="30" rx="6" ry="3" fill="#fff" opacity=".7" transform="rotate(-25 38 30)"/>${face(49)}`,
+ // メロンゼリー
+ `<ellipse cx="50" cy="82" rx="40" ry="8" fill="#fff6ee"/><ellipse cx="50" cy="82" rx="40" ry="8" fill="#000" opacity=".06"/>
+  <path d="M17 80 Q14 30 50 26 Q86 30 83 80 Z" fill="currentColor"/>
+  <path d="M17 80 Q50 88 83 80" stroke="#000" stroke-width="0" fill="currentColor" opacity=".5"/>
+  <path d="M27 72 Q24 42 36 34" stroke="#fff" stroke-width="5" fill="none" opacity=".55" stroke-linecap="round"/>
+  <path d="M50 22 Q52 10 60 7" stroke="#4a7a2a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="20" r="8" fill="#ff4f6d"/><circle cx="47" cy="17" r="2.2" fill="#fff" opacity=".8"/>${face(54)}`
+];
+const sweet=(p,cls='sweet')=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${ART[p]}</svg>`;
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cssv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const col=p=>cssv(PC[p]);
+const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
+const handFor=(size,need)=>need>=4?5:(size>=6?5:4);
+
+const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],
+  size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
+  busy:false,sel:null,eating:[],passMsg:''};
+let hist=[];
+
+// ================= 効果音 =================
+let actx=null,soundOn=true;
+function ac(){if(!soundOn)return null;try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx}catch(e){return null}}
+function tone(f,dur,{type='sine',vol=.15,to=null,delay=0}={}){const a=ac();if(!a)return;const t=a.currentTime+delay;
+  const o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(to)o.frequency.exponentialRampToValueAtTime(to,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(a.destination);o.start(t);o.stop(t+dur+.02)}
+function noise(dur,{vol=.2,freq=900,delay=0,type='lowpass'}={}){const a=ac();if(!a)return;const t=a.currentTime+delay;
+  const len=Math.floor(a.sampleRate*dur),b=a.createBuffer(1,len,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
+  const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();s.buffer=b;f.type=type;f.frequency.value=freq;g.gain.value=vol;s.connect(f).connect(g).connect(a.destination);s.start(t)}
+const sfx={
+  pick(){tone(700,.08,{type:'triangle',vol:.12,to:1000})},
+  drop(p){tone([880,740,660][p],.12,{vol:.2,to:[1320,1100,990][p]});tone(220,.08,{type:'triangle',vol:.1,delay:.02})},
+  swap(){noise(.25,{vol:.18,freq:2500,type:'bandpass'});tone(500,.2,{type:'triangle',vol:.1,to:900})},
+  chomp(k=0){noise(.07,{vol:.35,freq:700,delay:k});noise(.07,{vol:.3,freq:600,delay:k+.11})},
+  yum(n){[784,988,1175,1568].slice(0,2+Math.min(n,2)).forEach((f,i)=>tone(f,.22,{type:'triangle',vol:.13,delay:i*.08}))},
+  pass(){tone(400,.2,{type:'triangle',vol:.1,to:250})},
+  win(){[523,659,784,1047,1319].forEach((f,i)=>tone(f,.3,{type:'triangle',vol:.14,delay:i*.11}))}
+};
+
+// ================= エフェクト =================
+const cv=$('fx'),cx=cv.getContext('2d');let W=0,H=0;
+function resize(){const d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',resize);resize();
+const parts=[],texts=[];let raf=0;const K=reduced?.3:1;
+const CANDY=['#ff6f9f','#43b2f5','#6cc94e','#ffbf2f','#b98cff','#fff'];
+function burst(x,y,{n=24,colors=CANDY,speed=5,kinds=['sprinkle','sprinkle','dot','heart','star'],grav=.18,life=60}={}){
+  n=Math.round(n*K);
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=speed*(.35+Math.random()*.9);
+    parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,rot:Math.random()*6,vr:(Math.random()-.5)*.4,color:colors[i%colors.length],
+      kind:kinds[Math.floor(Math.random()*kinds.length)],size:4+Math.random()*4,life:life*(.7+Math.random()*.5),max:life,grav})}
+  loop();
+}
+function rain(colors,n=120){n=Math.round(n*K);for(let i=0;i<n;i++)parts.push({x:Math.random()*W,y:-20-Math.random()*H*.6,vx:(Math.random()-.5)*1.5,vy:2+Math.random()*2,rot:Math.random()*6,vr:(Math.random()-.5)*.3,
+  color:colors[i%colors.length],kind:['sprinkle','heart','star','dot'][i%4],size:5+Math.random()*5,life:220,max:220,grav:.03});loop()}
+function text(x,y,str,color,size=26,life=70){texts.push({x,y,str,color,size,life,max:life,vy:-1.2});loop()}
+function loop(){if(!raf)raf=requestAnimationFrame(frame)}
+function heart(s){cx.beginPath();cx.moveTo(0,s*.35);cx.bezierCurveTo(-s*1.1,-s*.35,-s*.45,-s*1.1,0,-s*.45);cx.bezierCurveTo(s*.45,-s*1.1,s*1.1,-s*.35,0,s*.35);cx.fill()}
+function star(s){cx.beginPath();for(let i=0;i<10;i++){const r=i%2?s*.45:s,a=i*Math.PI/5-Math.PI/2;cx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}cx.closePath();cx.fill()}
+function frame(){
+  raf=0;cx.clearRect(0,0,W,H);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.vx*=.985;p.vy+=p.grav;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;
+    cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);cx.globalAlpha=Math.min(1,p.life/p.max*2.5);cx.fillStyle=p.color;
+    if(p.kind==='sprinkle'){const w=p.size*1.6,h=p.size*.55;cx.beginPath();cx.roundRect?cx.roundRect(-w/2,-h/2,w,h,h/2):cx.rect(-w/2,-h/2,w,h);cx.fill()}
+    else if(p.kind==='heart')heart(p.size*.9);else if(p.kind==='star')star(p.size);
+    else{cx.beginPath();cx.arc(0,0,p.size*.45,0,Math.PI*2);cx.fill()}
+    cx.restore();if(--p.life<=0||p.y>H+40)parts.splice(i,1)}
+  for(let i=texts.length-1;i>=0;i--){const t=texts[i],age=t.max-t.life;t.y+=t.vy;t.vy*=.96;const s=age<8?1+(8-age)*.09:1;
+    cx.globalAlpha=Math.min(1,t.life/t.max*2.5);cx.font=`${Math.round(t.size*s)}px "Mochiy Pop One","Hiragino Maru Gothic ProN",sans-serif`;
+    cx.textAlign='center';cx.textBaseline='middle';cx.lineJoin='round';cx.lineWidth=7;cx.strokeStyle='#fff';cx.strokeText(t.str,t.x,t.y);
+    cx.fillStyle=t.color;cx.fillText(t.str,t.x,t.y);if(--t.life<=0)texts.splice(i,1)}
+  cx.globalAlpha=1;if(parts.length||texts.length)loop();
+}
+function rectOf(i){const el=$('c'+i);return el?el.getBoundingClientRect():null}
+function centerOf(i){const r=rectOf(i);return r?{x:r.left+r.width/2,y:r.top+r.height/2}:{x:W/2,y:H/2}}
+
+// ================= ルール =================
+const N=()=>S.size;
+const DIR8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+function nbrs(i){const n=N(),r=Math.floor(i/n),c=i%n,out=[];for(const[dr,dc]of DIR8){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<n&&cc>=0&&cc<n)out.push(rr*n+cc)}return out}
+function windows(){const n=N(),k=S.need,out=[];
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++)for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){
+    const er=r+dr*(k-1),ec=c+dc*(k-1);if(er<0||er>=n||ec<0||ec>=n)continue;
+    const w=[];for(let s=0;s<k;s++)w.push((r+dr*s)*n+c+dc*s);out.push(w)}
+  return out}
+let WIN=[];
+function lines(cells=S.cells){const out=[];
+  for(const w of WIN){const p=cells[w[0]];if(p!==null&&w.every(j=>cells[j]===p))out.push({p,w})}
+  return out}
+function actions(p,st=S){const out=[];const cells=st.cells;
+  if(st.hands[p]>0)cells.forEach((v,i)=>{if(v===null)out.push({t:'place',to:i})});
+  cells.forEach((v,i)=>{if(v!==p)return;for(const j of nbrs(i)){
+    if(cells[j]===null)out.push({t:'move',from:i,to:j});
+    else if(canSwap(i,j,p,st))out.push({t:'swap',from:i,to:j})}});
+  return out}
+// 入れかえは何回でもOK。入れかえで動いた2つのお菓子は固定（もう入れかえられない。空きマスへの移動はOK）
+const isFixed=(i,st=S)=>st.fixed.includes(i);
+function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&!isFixed(i,st)&&!isFixed(j,st)}
+function targetsFor(sel){const p=S.turn,t=new Map();
+  if(!sel)return t;
+  if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
+  else for(const j of nbrs(sel.i)){if(S.cells[j]===null)t.set(j,'move');else if(canSwap(sel.i,j,p))t.set(j,'swap')}
+  return t}
+
+// ================= 描画 =================
+let prevScores=[0,0,0];
+function renderPlayers(){
+  const box=$('players');
+  if(!box.children.length){
+    box.innerHTML=S.names.map((_,i)=>`<div class="pl" id="pl${i}" style="--c:var(${PC[i]})">
+      <div class="top"><span class="icon">${sweet(i,'')}</span><input id="name${i}" maxlength="8" aria-label="プレイヤー${i+1}の名前"></div>
+      <div class="jar" id="jar${i}" aria-label="点数"></div>
+      <div class="meta"><span id="hd${i}"></span><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
+    S.names.forEach((_,i)=>{const el=$('name'+i);el.value=S.names[i];
+      el.addEventListener('input',()=>{S.names[i]=el.value||SWEET[i];renderStatus()});
+      $('who'+i).addEventListener('click',()=>{S.cpu[i]=!S.cpu[i];S.sel=null;render()})});
+  }
+  S.names.forEach((_,i)=>{
+    $('pl'+i).classList.toggle('on',!S.over&&S.turn===i);
+    const jar=$('jar'+i);let h='';
+    for(let k=0;k<S.target;k++)h+=`<i class="${k<S.scores[i]?'f':''}${k<S.scores[i]&&k>=prevScores[i]?' new':''}"></i>`;
+    jar.innerHTML=h;jar.setAttribute('aria-label',`${S.scores[i]}点 / ${S.target}点`);
+    $('hd'+i).textContent=`手持ち${S.hands[i]} · ${S.wins[i]}勝`;
+    const w=$('who'+i);w.textContent=S.cpu[i]?'CPU':'人';w.setAttribute('aria-pressed',S.cpu[i]);
+    w.setAttribute('aria-label',`プレイヤー${i+1}を${S.cpu[i]?'人':'CPU'}に切り替え`);
+  });
+  prevScores=S.scores.slice();
+}
+function renderStatus(){
+  const st=$('status');
+  if(S.over){st.innerHTML=S.winners.length===1?`${nm(S.winners[0])} の勝ち！`:`${S.winners.map(nm).join(' と ')} が同点！`;return}
+  if(S.passMsg){st.innerHTML=S.passMsg;return}
+  if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
+  if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
+  else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
+  else{const left=MAXMOVES-S.moves;
+    st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
+}
+function renderBoard(){
+  const b=$('board');b.style.gridTemplateColumns=`repeat(${N()},1fr)`;
+  const human=!S.over&&!S.busy&&!S.cpu[S.turn];
+  const tg=human?targetsFor(S.sel):new Map();
+  b.innerHTML='';
+  S.cells.forEach((v,i)=>{
+    const c=document.createElement('div');c.className='cell';c.id='c'+i;c.dataset.i=i;
+    const r=Math.floor(i/N())+1,cl=i%N()+1;c.setAttribute('role','gridcell');
+    let label=`${r}行${cl}列 ${v===null?'空き':SWEET[v]}`;
+    if(v!==null){
+      const fx=isFixed(i),mine=human&&v===S.turn;
+      if(fx){c.classList.add('fixed');label+='（固定）'}
+      c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v)}</div>`;
+      if(S.eating.includes(i))c.classList.add('glow');
+    }
+    const t=tg.get(i);
+    if(t==='swap'){c.classList.add('swaptgt');label+='（入れかえ）'}else if(t)c.classList.add('tgt');
+    if(human&&(t||(v===S.turn))){c.tabIndex=0;c.setAttribute('aria-label',label+(t?' に動かす':' を選ぶ'))}else c.setAttribute('aria-label',label);
+    b.appendChild(c);
+  });
+  $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
+}
+function renderTray(){
+  const t=$('tray'),p=S.turn,human=!S.over&&!S.busy&&!S.cpu[p];
+  let hand='';
+  for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+SWEET[p]+'を選ぶ"':''}>${sweet(p)}</div>`;
+  t.innerHTML=`<span class="lbl">${S.over?'':esc(S.names[p])+'の手持ち'}</span><div class="hand" id="hand">${hand||(S.over?'':'<span class="note">手持ちなし。盤のお菓子を動かそう</span>')}</div>
+    <span class="swaps">入れかえ 何回でもOK</span>`;
+}
+function renderResult(){
+  const el=$('result');
+  if(!S.over){el.hidden=true;return}
+  const order=[0,1,2].sort((a,b)=>S.scores[b]-S.scores[a]);
+  const rows=order.map(p=>{const rank=1+S.scores.filter(x=>x>S.scores[p]).length;
+    return `<span class="n">${rank}位</span>${sweet(p,'')}<span class="nm" style="color:var(${PC[p]})">${esc(S.names[p])}</span><span class="p" style="color:var(${PC[p]})">${S.scores[p]}点</span>`}).join('');
+  const w=S.winners[0];
+  el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div><button class="btn primary" id="again" type="button">もう一回</button></div>`;
+  el.hidden=false;$('again').addEventListener('click',()=>newGame(true));
+}
+const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
+let cpuTimer=null,cpuPending=false;
+function render(){
+  if(!alive())return;
+  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();
+  clearTimeout(cpuTimer);cpuPending=false;
+  if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
+}
+setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render()},1500);
+
+// ================= 手番の処理 =================
+const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
+function doAct(a,fromRect){
+  if(S.over||S.busy)return;
+  const p=S.turn;hist.push(snap());
+  const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
+  if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
+  else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
+  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;S.fixed.push(a.from,a.to)}
+  S.moves++;S.sel=null;S.busy=true;S.passMsg='';
+  render();
+  // 動いた駒をなめらかに運ぶ
+  const fly=(i,from)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
+    el.animate([{transform:`translate(${from.left+from.width/2-(to.left+to.width/2)}px,${from.top+from.height/2-(to.top+to.height/2)}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:280,easing:'cubic-bezier(.3,1.35,.5,1)'})};
+  if(a.t==='place')fly(a.to,fromRect||trayRect());
+  else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
+  else{fly(a.to,fromRect||srcRects.from);fly(a.from,srcRects.to)}
+  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:260);
+  if(a.t==='swap'){sfx.swap();setTimeout(()=>{[a.from,a.to].forEach(i=>{const c=$('c'+i);if(c)c.classList.add('stamp')});tone(180,.12,{type:'square',vol:.08})},reduced?0:240)}
+  else sfx.drop(p);
+  setTimeout(()=>resolve(p),reduced?120:380);
+}
+function trayRect(){const h=document.querySelector('#hand .h');return h?h.getBoundingClientRect():$('tray').getBoundingClientRect()}
+function resolve(mover){
+  if(!alive())return;
+  const ls=lines();
+  if(!ls.length){endTurn();return}
+  const cellsEaten=[...new Set(ls.flatMap(l=>l.w))];
+  S.eating=cellsEaten;render();
+  cellsEaten.forEach((i,k)=>setTimeout(()=>{const c=centerOf(i),v=S.cells[i];burst(c.x,c.y,{n:16,colors:[col(v),'#fff',cssv('--gold'),'#ff9dbd']});sfx.chomp()},120+k*70));
+  setTimeout(()=>{
+    const gain=[0,0,0];ls.forEach(l=>gain[l.p]++);
+    const owners=new Map();cellsEaten.forEach(i=>owners.set(i,S.cells[i]));
+    cellsEaten.forEach(i=>{S.hands[S.cells[i]]++;S.cells[i]=null});
+    S.fixed=S.fixed.filter(i=>!cellsEaten.includes(i));
+    [0,1,2].forEach(p=>S.scores[p]=Math.min(S.target,S.scores[p]+gain[p]));
+    S.eating=[];
+    ls.forEach((l,k)=>{const cs=l.w.map(centerOf),z=cs[cs.length-1],m={x:(cs[0].x+z.x)/2,y:(cs[0].y+z.y)/2};
+      setTimeout(()=>{text(m.x,m.y-10,'+1',col(l.p),30);burst(m.x,m.y,{n:28,speed:6})},k*120)});
+    const n=ls.length,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height/2};
+    const words=['おいしい！','もぐもぐ！','あまーい！','しあわせ〜'];
+    const gifted=gain.some((g,p)=>g&&p!==mover);
+    text(mid.x,mid.y-bc.height*.18,n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
+    if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
+    sfx.yum(n);
+    const winners=[0,1,2].filter(p=>S.scores[p]>=S.target);
+    if(winners.length){finish(winners.length>1&&winners.includes(mover)?[mover]:winners);return}
+    render();setTimeout(endTurn,reduced?100:650);
+  },reduced?200:720);
+}
+function finish(w){
+  S.over=true;S.busy=false;S.winners=w;if(w.length===1)S.wins[w[0]]++;
+  render();sfx.win();setTimeout(()=>rain(w.map(col).concat(['#fff',cssv('--gold'),'#ff9dbd'])),200);
+}
+function endTurn(){
+  if(!alive())return;
+  if(S.moves>=MAXMOVES){const m=Math.max(...S.scores);finish([0,1,2].filter(p=>S.scores[p]===m));return}
+  let skipped=[];
+  for(let k=0;k<3;k++){S.turn=(S.turn+1)%3;if(actions(S.turn).length)break;skipped.push(S.turn)}
+  S.busy=false;
+  if(skipped.length>=3){ // 誰も動けない：その時点の点数で決着
+    const m=Math.max(...S.scores);finish([0,1,2].filter(p=>S.scores[p]===m));return}
+  if(skipped.length){S.passMsg=`${skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
+  render();
+}
+function undo(){
+  if(S.busy||!hist.some(h=>!S.cpu[h.turn]))return;
+  if(S.over&&S.winners.length===1)S.wins[S.winners[0]]--;
+  let h;do{h=hist.pop()}while(hist.length&&S.cpu[h.turn]);
+  Object.assign(S,h);S.over=false;S.winners=[];S.sel=null;S.eating=[];S.passMsg='';prevScores=S.scores.slice();render();
+}
+function newGame(advance){
+  if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
+  S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;WIN=windows();setRules();
+  const h=handFor(S.size,S.need);S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
+  S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
+  render();
+}
+
+// ================= 操作（ドラッグ / タップ） =================
+let drag=null;
+function canAct(){return !S.over&&!S.busy&&!S.cpu[S.turn]}
+function selFromEl(el){
+  if(!el)return null;
+  const h=el.closest('#hand .h');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
+  const c=el.closest('.cell');if(c){const i=+c.dataset.i;if(S.cells[i]===S.turn)return{kind:'cell',i}}
+  return null;
+}
+function trySelTarget(i,fromRect){
+  const t=targetsFor(S.sel).get(i);if(!t)return false;
+  doAct(t==='place'?{t:'place',to:i}:{t,from:S.sel.i,to:i},fromRect);return true;
+}
+function sameSel(a,b){return a&&b&&a.kind===b.kind&&(a.kind==='hand'||a.i===b.i)}
+document.addEventListener('pointerdown',e=>{
+  ac();if(!canAct())return;
+  const sel=selFromEl(e.target);
+  if(sel){drag={sel,x:e.clientX,y:e.clientY,moved:false,ghost:null,src:e.target.closest('.pc,.h'),wasSel:sameSel(S.sel,sel)};e.preventDefault();return}
+  // 選択中に空きマス・入れかえ先をタップ
+  const c=e.target.closest('.cell');
+  if(S.sel&&c){if(!trySelTarget(+c.dataset.i)){S.sel=null;render()}}
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6){
+    drag.moved=true;S.sel=drag.sel;sfx.pick();render();
+    const g=document.createElement('div');g.className='ghost';g.innerHTML=sweet(S.turn);document.body.appendChild(g);drag.ghost=g;
+    const src=drag.sel.kind==='cell'?$('pc'+drag.sel.i):document.querySelector('#hand .h');if(src)src.classList.add('lift');
+  }
+  if(drag.moved){drag.ghost.style.transform=`translate(${e.clientX}px,${e.clientY}px)`;
+    document.querySelectorAll('.cell.over').forEach(x=>x.classList.remove('over'));
+    const c=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell');if(c&&(c.classList.contains('tgt')||c.classList.contains('swaptgt')))c.classList.add('over')}
+});
+document.addEventListener('pointerup',e=>{
+  if(!drag)return;const d=drag;drag=null;
+  if(d.moved){
+    const gr=d.ghost.getBoundingClientRect();d.ghost.remove();
+    const c=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell');
+    if(!(c&&trySelTarget(+c.dataset.i,gr))){S.sel=null;render()}
+  }else{
+    if(d.wasSel){S.sel=null}else{S.sel=d.sel;sfx.pick()}
+    render();
+  }
+});
+document.addEventListener('pointercancel',()=>{if(drag){drag.ghost&&drag.ghost.remove();drag=null;S.sel=null;render()}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.sel){S.sel=null;render();return}
+  if((e.key==='Enter'||e.key===' ')&&canAct()){
+    const el=document.activeElement;if(!el)return;
+    const c=el.closest&&el.closest('.cell');const i=c?+c.dataset.i:-1;
+    if(S.sel&&c&&targetsFor(S.sel).has(i)){e.preventDefault();trySelTarget(i);return}
+    const sel=selFromEl(el);if(sel){e.preventDefault();S.sel=sameSel(S.sel,sel)?null:sel;render();
+      const again=sel.kind==='cell'?$('c'+sel.i):document.querySelector('#hand .h');again&&again.focus()}
+  }
+});
+
+// ================= CPU =================
+function simulate(a,p){
+  const c=S.cells.slice();
+  if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}
+  return c;
+}
+function threats(c,q,hands){ // qが次の一手で揃えられる並びの数（ざっくり）
+  let t=0;const k=S.need;
+  for(const w of WIN){
+    let own=0,empty=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;empty=j}}
+    if(own===k-1&&ne===1&&(hands[q]>0||nbrs(empty).some(j=>c[j]===q&&!w.includes(j))))t++;
+  }
+  return t;
+}
+function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
+  let t=0;const k=S.need;if(k<4)return 0;
+  for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===k-2&&ne===2)t++}
+  return t;
+}
+function evalAct(a,p){
+  const c=simulate(a,p),ls=lines(c);
+  let s=0;const hands=S.hands.slice();if(a.t==='place')hands[p]--;
+  for(const l of ls)s+=l.p===p?(S.scores[p]+1>=S.target?10000:120):-90;
+  // 食べられた後の盤で評価
+  const after=c.slice();ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null}}));
+  s+=threats(after,p,hands)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
+  const nx=(p+1)%3,nx2=(p+2)%3;
+  s-=threats(after,nx,hands)*(S.scores[nx]+1>=S.target?60:22);
+  s-=threats(after,nx2,hands)*(S.scores[nx2]+1>=S.target?40:14);
+  if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;
+  if(a.t==='place')s+=2;
+  const n=N(),mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;
+  return s+Math.random()*4;
+}
+function cpuTurn(){
+  const p=S.turn,acts=actions(p);if(!acts.length){endTurn();return}
+  let best=acts[0],bs=-Infinity;for(const a of acts){const s=evalAct(a,p);if(s>bs){bs=s;best=a}}
+  if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
+    const mv=S.moves;cpuPending=true;
+    setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:380)}
+  else doAct(best);
+}
+
+// ================= 起動 =================
+$('reset').addEventListener('click',()=>newGame(true));
+$('undo').addEventListener('click',undo);
+function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`}
+['size','need','target'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
+function start(data){
+  if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
+  S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
+  $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
+  if(S.cells.length!==S.size*S.size){const h=handFor(S.size,S.need);S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
+  prevScores=S.scores.slice();render();
+}
+window.claude?.hot?.snapshot?.(()=>({S,hist}));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
