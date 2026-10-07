@@ -392,7 +392,7 @@ function doAct(a,fromRect){
   if(a.t==='place')fly(a.to,fromRect||trayRect());
   else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
   const SW=a.t==='swap'?swapAnim(a,p,fromRect,srcRects):0; // 入れかえはぶつかって弧を描いて交換（ms）
-  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:(SW||260));
+  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},SW||(reduced?0:260));
   if(a.t==='swap'){setTimeout(()=>{
       // 着地したら、ぶつけられたお菓子の顔とマスを新しいモードに切りかえる
       const vc=$('c'+a.from),vp=$('pc'+a.from);
@@ -406,9 +406,9 @@ function doAct(a,fromRect){
         if(c)c.classList.add('stamp');
         text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
-      }},reduced?0:SW)}
+      }},SW)}
   else sfx.drop(p);
-  setTimeout(()=>resolve(p),reduced?120:(SW?SW+180:380));
+  setTimeout(()=>resolve(p),SW?SW+180:(reduced?120:380));
 }
 // 入れかえアニメ：自分のお菓子が助走をつけて体当たり → 相手がはじかれて、2つが弧を描いてすれちがう
 function swapAnim(a,p,dropRect,src){
@@ -419,11 +419,16 @@ function swapAnim(a,p,dropRect,src){
   const cA=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
   const A=cA(src.from),B=cA(src.to);          // A：自分のお菓子が元いた所、B：相手のお菓子が元いた所
   const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1;
-  const px=-dy/len*len*.42,py=dx/len*len*.42; // 弧のふくらみ（進む向きに対して直角）
+  const px=-dy/len*len*.6,py=dx/len*len*.6;   // 弧のふくらみ（進む向きに対して直角）
   const T=(x,y,extra='')=>`translate(${x}px,${y}px) ${extra}`;
   [me,them].forEach((el,k)=>{el.style.position='relative';el.style.zIndex=k?4:6});
-  if(reduced){[me,them].forEach(el=>{el.style.zIndex=''});return 1}
-  const dur=720;
+  const cleanup=d=>setTimeout(()=>[me,them].forEach(el=>{el.style.zIndex='';el.style.position=''}),d+20);
+  if(reduced){ // 動きを減らす設定の端末でも、入れかわる様子は見えるように：回転なしでスッとすれちがう
+    const d=480,o={duration:d,easing:'ease-in-out'};
+    me.animate([{transform:T(A.x-B.x,A.y-B.y)},{transform:T(-dx*.5+px*.3,-dy*.5+py*.3)},{transform:'none'}],o);
+    them.animate([{transform:T(B.x-A.x,B.y-A.y)},{transform:T(dx*.5-px*.3,dy*.5-py*.3)},{transform:'none'}],o);
+    setTimeout(()=>sfx.swap(),d*.4);cleanup(d);return d}
+  const dur=1050;
   // 自分のお菓子（今は B にいる）。ドラッグで落としたときは相手の真上から、そうでなければ A から助走
   const start=dropRect?cA(dropRect):A;
   me.animate([
@@ -445,7 +450,7 @@ function swapAnim(a,p,dropRect,src){
   setTimeout(()=>{const m={x:(A.x+B.x)/2+dx*.08,y:(A.y+B.y)/2+dy*.08};
     burst(m.x,m.y,{n:10,speed:3.5,colors:['#fff',col(p),cssv('--gold')],kinds:['star','dot'],grav:.05,life:30});
     sfx.swap();tone(140,.12,{type:'triangle',vol:.18,to:70})},dur*.34);
-  setTimeout(()=>[me,them].forEach(el=>{el.style.zIndex='';el.style.position=''}),dur+20);
+  cleanup(dur);
   return dur;
 }
 function trayRect(){const h=document.querySelector('#hand .h');return h?h.getBoundingClientRect():$('tray').getBoundingClientRect()}
