@@ -18,7 +18,7 @@ function threats2(c,q,hands,fixed){let t=0;for(const w of WIN){let own=0,e=-1,ne
   else if(NB[g].some(j=>c[j]===q&&!w.includes(j)&&fixed.has(j)===fixed.has(g)))t++}return t}
 function fixedAfter(S,a,eaten){const f=new Set(S.fixed);
   if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
-  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.to);else f.add(a.to)}
+  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.from);else f.add(a.from)}
   eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){let t=0;for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===NEED-2&&ne===2)t++}return t}
 
@@ -69,7 +69,7 @@ function play(seats){ // seats: 3人の頭（席順＝手番順、0番が先手�
     const p=S.turn,f=BRAINS[seats[p]];let best=acts[0],bs=-Infinity;for(const a of acts){const v=f(S,a,p);if(v>bs){bs=v;best=a}}
     S.cells=simulate(S,best,p);if(best.t==='place')S.hands[p]--;
     if(best.t==='move'&&S.fixed.has(best.from)){S.fixed.delete(best.from);S.fixed.add(best.to)}
-    if(best.t==='swap'){if(S.fixed.has(best.from)&&S.fixed.has(best.to))S.fixed.delete(best.to);else S.fixed.add(best.to)}
+    if(best.t==='swap'){if(S.fixed.has(best.from)&&S.fixed.has(best.to))S.fixed.delete(best.from);else S.fixed.add(best.from)}
     S.moves++;
     const ls=lines(S.cells);
     if(ls.length){const eaten=new Set(ls.flatMap(l=>l.w));ls.forEach(l=>S.scores[l.p]=Math.min(TARGET,S.scores[l.p]+1));

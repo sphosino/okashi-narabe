@@ -150,8 +150,8 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
   <ol class="rules">
     <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
-    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえた<b>自分のお菓子は「恋モード」</b>（目がハート）になります。</li>
-    <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえた側のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
+    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえられた<b>相手のお菓子は一目ぼれして「恋モード」</b>（目がハート）になります。</li>
+    <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえられた相手のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
 </div>
@@ -278,9 +278,9 @@ function actions(p,st=S){const out=[];const cells=st.cells;
     if(cells[j]===null)out.push({t:'move',from:i,to:j});
     else if(canSwap(i,j,p,st))out.push({t:'swap',from:i,to:j})}});
   return out}
-// 入れかえは何回でもOK。入れかえた側のお菓子は「恋モード」になる。
+// 入れかえは何回でもOK。入れかえられた相手のお菓子は一目ぼれして「恋モード」になる。
 // ふつう同士・恋モード同士なら入れかえられる（ふつうと恋モードは入れかえられない）。
-// 恋モード同士で入れかえると、入れかえた側のお菓子は目がさめてふつうに戻る。空きマスへの移動はいつでもOK
+// 恋モード同士で入れかえると、入れかえられた相手のお菓子は目がさめてふつうに戻る。空きマスへの移動はいつでもOK
 const isFixed=(i,st=S)=>st.fixed.includes(i);
 function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&isFixed(i,st)===isFixed(j,st)}
 function targetsFor(sel){const p=S.turn,t=new Map();
@@ -381,8 +381,9 @@ function doAct(a,fromRect){
   if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
   else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
   else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;
-    if(isFixed(a.from)&&isFixed(a.to)){a.wake=true;S.fixed=S.fixed.filter(i=>i!==a.to)} // 恋モード同士：自分のは目がさめる
-    else S.fixed.push(a.to)}                                                         // ふつう同士：自分のが恋モードに
+    a.victim=o;
+    if(isFixed(a.from)&&isFixed(a.to)){a.wake=true;S.fixed=S.fixed.filter(i=>i!==a.from)} // 恋モード同士：ぶつけられた相手のお菓子が目をさます
+    else S.fixed.push(a.from)}                                                           // ふつう同士：ぶつけられた相手のお菓子が一目ぼれ
   S.moves++;S.sel=null;S.busy=true;S.passMsg='';
   render();
   // 動いた駒をなめらかに運ぶ
@@ -393,11 +394,11 @@ function doAct(a,fromRect){
   else{fly(a.to,fromRect||srcRects.from);fly(a.from,srcRects.to)}
   setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:260);
   if(a.t==='swap'){sfx.swap();setTimeout(()=>{
-      const c=$('c'+a.to),pt=centerOf(a.to);
+      const c=$('c'+a.from),pt=centerOf(a.from); // ぶつけられた相手のお菓子は a.from に移っている
       if(a.wake){ // 目がさめた
-        text(pt.x,pt.y-28,'はっ！',col(p),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(p)],kinds:['star','dot']});
+        text(pt.x,pt.y-28,'はっ！',col(a.victim),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(a.victim)],kinds:['star','dot']});
         tone(1200,.08,{type:'triangle',vol:.1});tone(600,.15,{type:'triangle',vol:.08,delay:.06});
-      }else{     // 恋におちた
+      }else{     // 一目ぼれ
         if(c)c.classList.add('stamp');
         text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
@@ -538,7 +539,7 @@ function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並び�
 }
 function fixedAfter(a,eaten){const f=new Set(S.fixed);
   if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
-  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.to);else f.add(a.to)}
+  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.from);else f.add(a.from)}
   eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
   let t=0;const k=S.need;if(k<4)return 0;
