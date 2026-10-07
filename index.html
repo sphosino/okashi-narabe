@@ -187,7 +187,7 @@ const col=p=>cssv(PC[p]);
 const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
-const handFor=(size,need)=>need>=4?5:(size>=6?5:4);
+const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
 
 const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,

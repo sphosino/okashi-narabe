@@ -1,5 +1,5 @@
 // おかしならべ（6×6・4つ並べ・手持ち5・目標3点・入れかえ何回でも・入れかえたお菓子は入れかえ禁止）を高速に回す
-const SIZE=6,NEED=4,HAND=5,TARGET=3,MAXMOVES=150;
+const SIZE=6,NEED=4,HAND=6,TARGET=3,MAXMOVES=150;
 const N=SIZE;
 const DIR8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 const NB=[...Array(N*N)].map((_,i)=>{const r=Math.floor(i/N),c=i%N,o=[];for(const[dr,dc]of DIR8){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<N&&cc>=0&&cc<N)o.push(rr*N+cc)}return o});
