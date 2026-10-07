@@ -1,4 +1,4 @@
-// おかしならべ（6×6・4つ並べ・手持ち5・目標3点・入れかえ何回でも・入れかえたお菓子は入れかえ禁止）を高速に回す
+// おかしならべ（6×6・4つ並べ・手持ち6・目標3点・入れかえ何回でも・恋モードあり）を高速に回す
 const SIZE=6,NEED=4,HAND=6,TARGET=3,MAXMOVES=150;
 const N=SIZE;
 const DIR8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
@@ -6,7 +6,7 @@ const NB=[...Array(N*N)].map((_,i)=>{const r=Math.floor(i/N),c=i%N,o=[];for(cons
 const WIN=[];for(let r=0;r<N;r++)for(let c=0;c<N;c++)for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){const er=r+dr*(NEED-1),ec=c+dc*(NEED-1);if(er<0||er>=N||ec<0||ec>=N)continue;const w=[];for(let s=0;s<NEED;s++)w.push((r+dr*s)*N+c+dc*s);WIN.push(w)}
 const lines=c=>{const o=[];for(const w of WIN){const p=c[w[0]];if(p!==null&&w.every(j=>c[j]===p))o.push({p,w})}return o};
 function actions(S,p){const o=[];if(S.hands[p]>0)S.cells.forEach((v,i)=>{if(v===null)o.push({t:'place',to:i})});
-  S.cells.forEach((v,i)=>{if(v!==p)return;for(const j of NB[i]){const u=S.cells[j];if(u===null)o.push({t:'move',from:i,to:j});else if(u!==p&&!S.fixed.has(i)&&!S.fixed.has(j))o.push({t:'swap',from:i,to:j})}});return o}
+  S.cells.forEach((v,i)=>{if(v!==p)return;for(const j of NB[i]){const u=S.cells[j];if(u===null)o.push({t:'move',from:i,to:j});else if(u!==p&&S.fixed.has(i)===S.fixed.has(j))o.push({t:'swap',from:i,to:j})}});return o}
 function simulate(S,a,p){const c=S.cells.slice();if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}return c}
 function threats(c,q,hands){let t=0;for(const w of WIN){let own=0,e=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}}
   if(own===NEED-1&&ne===1&&(hands[q]>0||NB[e].some(j=>c[j]===q&&!w.includes(j))))t++}return t}
@@ -15,10 +15,10 @@ function threats(c,q,hands){let t=0;for(const w of WIN){let own=0,e=-1,ne=0;for(
 function threats2(c,q,hands,fixed){let t=0;for(const w of WIN){let own=0,e=-1,ne=0,g=-1;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}else g=j}
   if(own!==NEED-1)continue;
   if(ne===1){if(hands[q]>0||NB[e].some(j=>c[j]===q&&!w.includes(j)))t++}
-  else if(!fixed.has(g)&&NB[g].some(j=>c[j]===q&&!w.includes(j)&&!fixed.has(j)))t++}return t}
+  else if(NB[g].some(j=>c[j]===q&&!w.includes(j)&&fixed.has(j)===fixed.has(g)))t++}return t}
 function fixedAfter(S,a,eaten){const f=new Set(S.fixed);
   if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
-  if(a.t==='swap')f.add(a.to);
+  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.to);else f.add(a.to)}
   eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){let t=0;for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===NEED-2&&ne===2)t++}return t}
 
@@ -69,7 +69,7 @@ function play(seats){ // seats: 3人の頭（席順＝手番順、0番が先手�
     const p=S.turn,f=BRAINS[seats[p]];let best=acts[0],bs=-Infinity;for(const a of acts){const v=f(S,a,p);if(v>bs){bs=v;best=a}}
     S.cells=simulate(S,best,p);if(best.t==='place')S.hands[p]--;
     if(best.t==='move'&&S.fixed.has(best.from)){S.fixed.delete(best.from);S.fixed.add(best.to)}
-    if(best.t==='swap'){S.fixed.add(best.to)}
+    if(best.t==='swap'){if(S.fixed.has(best.from)&&S.fixed.has(best.to))S.fixed.delete(best.to);else S.fixed.add(best.to)}
     S.moves++;
     const ls=lines(S.cells);
     if(ls.length){const eaten=new Set(ls.flatMap(l=>l.w));ls.forEach(l=>S.scores[l.p]=Math.min(TARGET,S.scores[l.p]+1));

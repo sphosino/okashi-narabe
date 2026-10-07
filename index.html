@@ -57,8 +57,10 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .cell.tgt::before{content:"";width:26%;height:26%;border-radius:50%;background:#fff8;box-shadow:0 0 0 4px #ffffff33;animation:pulse 1s infinite}
 .cell.tgt:hover,.cell.tgt.over{background:linear-gradient(150deg,#c4825c,#a96a48)}
 .cell.swaptgt{box-shadow:inset 0 0 0 3px var(--gold),0 0 12px var(--gold)}
-.cell.fixed{box-shadow:inset 0 0 0 3px var(--gold),inset 0 -4px 0 #0000002a}
-.cell.fixed::after{content:"固";position:absolute;top:-6px;right:-6px;width:19px;height:19px;border-radius:50%;background:var(--gold);color:var(--ink);font:400 10px/19px var(--display);text-align:center;box-shadow:0 2px 0 #0003;z-index:2}
+.cell.fixed{background:linear-gradient(150deg,#b8697a,#9a4f62);box-shadow:inset 0 0 0 3px #ff8fb1,inset 0 -4px 0 #0000002a}
+.cell.fixed::after{content:"♥";position:absolute;top:-6px;right:-6px;width:19px;height:19px;border-radius:50%;background:#ff2f6d;color:#fff;font:700 11px/19px var(--body);text-align:center;box-shadow:0 2px 0 #0003;z-index:2}
+.cell.fixed .pc:not(.eat):not(.sel):not(.land) .sweet{animation:dokidoki 1.4s ease-in-out infinite}
+@keyframes dokidoki{0%,60%,100%{transform:scale(1)}70%{transform:scale(1.08)}80%{transform:scale(1)}90%{transform:scale(1.06)}}
 .cell.fixed.stamp::after{animation:stamp .45s cubic-bezier(.2,1.6,.4,1)}
 @keyframes stamp{0%{transform:scale(3) rotate(-30deg);opacity:0}100%{transform:none;opacity:1}}
 .cell.swaptgt::after{content:"⇄";position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--ink);font:700 13px/20px var(--body);text-align:center;z-index:2}
@@ -148,17 +150,24 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
   <ol class="rules">
     <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
-    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえた<b>自分のお菓子は固定</b>になり、もう誰にも入れかえられません（空いているマスへ動かすのはOK）。</li>
+    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえた<b>自分のお菓子は「恋モード」</b>（目がハート）になります。</li>
+    <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえた側のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
 </div>
 
 <script>
 const PC=['--p0','--p1','--p2'],SWEET=['マカロン','キャンディ','ゼリー'];
-const face=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
+const faceNormal=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
   <path d="M45.5 ${y+5} Q50 ${y+9} 54.5 ${y+5}" stroke="#5b2f20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
   <ellipse cx="33" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/><ellipse cx="67" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/>`;
-const ART=[
+// 恋モード：目がハート、ほっぺが真っ赤、口がぽかん
+const heartAt=(x,y,s)=>`<path d="M${x} ${y+s*.9} C${x-s*1.6} ${y-s*.1} ${x-s*.8} ${y-s*1.3} ${x} ${y-s*.45} C${x+s*.8} ${y-s*1.3} ${x+s*1.6} ${y-s*.1} ${x} ${y+s*.9} Z"`;
+const faceLove=y=>`${heartAt(41,y,4.4)} fill="#ff2f6d"/>${heartAt(59,y,4.4)} fill="#ff2f6d"/>
+  <ellipse cx="50" cy="${y+7}" rx="2.6" ry="2.2" fill="#5b2f20"/>
+  <ellipse cx="32" cy="${y+5}" rx="6.5" ry="3.6" fill="#ff2f6d" opacity=".55"/><ellipse cx="68" cy="${y+5}" rx="6.5" ry="3.6" fill="#ff2f6d" opacity=".55"/>`;
+let face=faceNormal;
+const makeArt=()=>[
  // いちごマカロン
  `<path d="M12 60 Q12 82 50 82 Q88 82 88 60 Z" fill="currentColor"/><rect x="13" y="55" width="74" height="9" rx="4.5" fill="currentColor"/><rect x="13" y="55" width="74" height="9" rx="4.5" fill="#000" opacity=".13"/>
   <rect x="11" y="46" width="78" height="11" rx="5.5" fill="#fff6ee"/>
@@ -179,7 +188,8 @@ const ART=[
   <path d="M50 22 Q52 10 60 7" stroke="#4a7a2a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
   <circle cx="50" cy="20" r="8" fill="#ff4f6d"/><circle cx="47" cy="17" r="2.2" fill="#fff" opacity=".8"/>${face(54)}`
 ];
-const sweet=(p,cls='sweet')=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${ART[p]}</svg>`;
+const ART=makeArt();face=faceLove;const ART_LOVE=makeArt();face=faceNormal;
+const sweet=(p,cls='sweet',love=false)=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${(love?ART_LOVE:ART)[p]}</svg>`;
 const $=id=>document.getElementById(id);
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cssv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -268,9 +278,11 @@ function actions(p,st=S){const out=[];const cells=st.cells;
     if(cells[j]===null)out.push({t:'move',from:i,to:j});
     else if(canSwap(i,j,p,st))out.push({t:'swap',from:i,to:j})}});
   return out}
-// 入れかえは何回でもOK。入れかえた側のお菓子は固定（もう入れかえられない。空きマスへの移動はOK）
+// 入れかえは何回でもOK。入れかえた側のお菓子は「恋モード」になる。
+// ふつう同士・恋モード同士なら入れかえられる（ふつうと恋モードは入れかえられない）。
+// 恋モード同士で入れかえると、入れかえた側のお菓子は目がさめてふつうに戻る。空きマスへの移動はいつでもOK
 const isFixed=(i,st=S)=>st.fixed.includes(i);
-function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&!isFixed(i,st)&&!isFixed(j,st)}
+function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&isFixed(i,st)===isFixed(j,st)}
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
   if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
@@ -322,8 +334,8 @@ function renderBoard(){
     let label=`${r}行${cl}列 ${v===null?'空き':SWEET[v]}`;
     if(v!==null){
       const fx=isFixed(i),mine=human&&v===S.turn;
-      if(fx){c.classList.add('fixed');label+='（固定）'}
-      c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v)}</div>`;
+      if(fx){c.classList.add('fixed');label+='（恋モード）'}
+      c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v,'sweet',fx)}</div>`;
       if(S.eating.includes(i))c.classList.add('glow');
     }
     const t=tg.get(i);
@@ -368,7 +380,9 @@ function doAct(a,fromRect){
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
   else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
-  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;S.fixed.push(a.to)}
+  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;
+    if(isFixed(a.from)&&isFixed(a.to)){a.wake=true;S.fixed=S.fixed.filter(i=>i!==a.to)} // 恋モード同士：自分のは目がさめる
+    else S.fixed.push(a.to)}                                                         // ふつう同士：自分のが恋モードに
   S.moves++;S.sel=null;S.busy=true;S.passMsg='';
   render();
   // 動いた駒をなめらかに運ぶ
@@ -378,7 +392,16 @@ function doAct(a,fromRect){
   else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
   else{fly(a.to,fromRect||srcRects.from);fly(a.from,srcRects.to)}
   setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:260);
-  if(a.t==='swap'){sfx.swap();setTimeout(()=>{{const c=$('c'+a.to);if(c)c.classList.add('stamp')}tone(180,.12,{type:'square',vol:.08})},reduced?0:240)}
+  if(a.t==='swap'){sfx.swap();setTimeout(()=>{
+      const c=$('c'+a.to),pt=centerOf(a.to);
+      if(a.wake){ // 目がさめた
+        text(pt.x,pt.y-28,'はっ！',col(p),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(p)],kinds:['star','dot']});
+        tone(1200,.08,{type:'triangle',vol:.1});tone(600,.15,{type:'triangle',vol:.08,delay:.06});
+      }else{     // 恋におちた
+        if(c)c.classList.add('stamp');
+        text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
+        [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
+      }},reduced?0:240)}
   else sfx.drop(p);
   setTimeout(()=>resolve(p),reduced?120:380);
 }
@@ -508,14 +531,14 @@ function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並び�
     if(own!==k-1)continue;
     // 最後の1マスが空いている：置くか、となりから動かして揃う
     if(ne===1){if(hands[q]>0||nbrs(empty).some(j=>c[j]===q&&!w.includes(j)))t++}
-    // 最後の1マスに他人のお菓子：固定されていなければ、となりの自分のお菓子と入れかえて揃う
-    else if(!fixed.has(g)&&nbrs(g).some(j=>c[j]===q&&!w.includes(j)&&!fixed.has(j)))t++;
+    // 最後の1マスに他人のお菓子：となりに同じモード（ふつう同士・恋モード同士）の自分のお菓子があれば、入れかえて揃う
+    else if(nbrs(g).some(j=>c[j]===q&&!w.includes(j)&&fixed.has(j)===fixed.has(g)))t++;
   }
   return t;
 }
 function fixedAfter(a,eaten){const f=new Set(S.fixed);
   if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
-  if(a.t==='swap')f.add(a.to);
+  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.to);else f.add(a.to)}
   eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
   let t=0;const k=S.need;if(k<4)return 0;
