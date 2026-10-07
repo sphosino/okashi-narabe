@@ -391,9 +391,13 @@ function doAct(a,fromRect){
     el.animate([{transform:`translate(${from.left+from.width/2-(to.left+to.width/2)}px,${from.top+from.height/2-(to.top+to.height/2)}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:280,easing:'cubic-bezier(.3,1.35,.5,1)'})};
   if(a.t==='place')fly(a.to,fromRect||trayRect());
   else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
-  else{fly(a.to,fromRect||srcRects.from);fly(a.from,srcRects.to)}
-  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:260);
-  if(a.t==='swap'){sfx.swap();setTimeout(()=>{
+  const SW=a.t==='swap'?swapAnim(a,p,fromRect,srcRects):0; // 入れかえはぶつかって弧を描いて交換（ms）
+  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:(SW||260));
+  if(a.t==='swap'){setTimeout(()=>{
+      // 着地したら、ぶつけられたお菓子の顔とマスを新しいモードに切りかえる
+      const vc=$('c'+a.from),vp=$('pc'+a.from);
+      if(vp){vp.innerHTML=sweet(a.victim,'sweet',!a.wake);vp.classList.add('land')}
+      if(vc)vc.classList.toggle('fixed',!a.wake);
       const c=$('c'+a.from),pt=centerOf(a.from); // ぶつけられた相手のお菓子は a.from に移っている
       if(a.wake){ // 目がさめた
         text(pt.x,pt.y-28,'はっ！',col(a.victim),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(a.victim)],kinds:['star','dot']});
@@ -402,9 +406,47 @@ function doAct(a,fromRect){
         if(c)c.classList.add('stamp');
         text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
-      }},reduced?0:240)}
+      }},reduced?0:SW)}
   else sfx.drop(p);
-  setTimeout(()=>resolve(p),reduced?120:380);
+  setTimeout(()=>resolve(p),reduced?120:(SW?SW+180:380));
+}
+// 入れかえアニメ：自分のお菓子が助走をつけて体当たり → 相手がはじかれて、2つが弧を描いてすれちがう
+function swapAnim(a,p,dropRect,src){
+  const me=$('pc'+a.to),them=$('pc'+a.from),vc=$('c'+a.from);
+  if(!me||!them||!me.animate||!src.from||!src.to)return 0;
+  // 飛んでいる間は、ぶつけられた側を元の顔・元のマスのままにしておく
+  them.innerHTML=sweet(a.victim,'sweet',!!a.wake);if(vc)vc.classList.toggle('fixed',!!a.wake);
+  const cA=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
+  const A=cA(src.from),B=cA(src.to);          // A：自分のお菓子が元いた所、B：相手のお菓子が元いた所
+  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1;
+  const px=-dy/len*len*.42,py=dx/len*len*.42; // 弧のふくらみ（進む向きに対して直角）
+  const T=(x,y,extra='')=>`translate(${x}px,${y}px) ${extra}`;
+  [me,them].forEach((el,k)=>{el.style.position='relative';el.style.zIndex=k?4:6});
+  if(reduced){[me,them].forEach(el=>{el.style.zIndex=''});return 1}
+  const dur=720;
+  // 自分のお菓子（今は B にいる）。ドラッグで落としたときは相手の真上から、そうでなければ A から助走
+  const start=dropRect?cA(dropRect):A;
+  me.animate([
+    {offset:0,   transform:T(start.x-B.x,start.y-B.y,'scale(1.15)')},
+    ...(dropRect?[]:[{offset:.18,transform:T(A.x-B.x-dx*.12,A.y-B.y-dy*.12,'scale(1.15,.85) rotate(-8deg)')}]), // ぐっと溜める
+    {offset:.34, transform:T(-dx*.42,-dy*.42,'scale(1.25,.8)')},                 // ドン！（ぶつかる）
+    {offset:.62, transform:T(-dx*.5+px*.6,-dy*.5+py*.6,'scale(1.1) rotate(10deg)')}, // 弧を描いて回りこむ
+    {offset:1,   transform:'none'}
+  ],{duration:dur,easing:'ease-in-out'});
+  // 相手のお菓子（今は A にいる）。ぶつかった瞬間にはじかれ、くるっと回って反対側の弧で A へ
+  them.animate([
+    {offset:0,   transform:T(B.x-A.x,B.y-A.y)},
+    {offset:.34, transform:T(B.x-A.x,B.y-A.y,'scale(.9,1.1)')},
+    {offset:.42, transform:T(B.x-A.x+dx*.1,B.y-A.y+dy*.1,'scale(1.15,.8) rotate(-15deg)')}, // ボヨン
+    {offset:.7,  transform:T(dx*.5-px*.6,dy*.5-py*.6,'rotate(-200deg) scale(.95)')},
+    {offset:1,   transform:'rotate(-360deg)'}
+  ],{duration:dur,easing:'ease-in-out'});
+  // ぶつかった瞬間：星と音
+  setTimeout(()=>{const m={x:(A.x+B.x)/2+dx*.08,y:(A.y+B.y)/2+dy*.08};
+    burst(m.x,m.y,{n:10,speed:3.5,colors:['#fff',col(p),cssv('--gold')],kinds:['star','dot'],grav:.05,life:30});
+    sfx.swap();tone(140,.12,{type:'triangle',vol:.18,to:70})},dur*.34);
+  setTimeout(()=>[me,them].forEach(el=>{el.style.zIndex='';el.style.position=''}),dur+20);
+  return dur;
 }
 function trayRect(){const h=document.querySelector('#hand .h');return h?h.getBoundingClientRect():$('tray').getBoundingClientRect()}
 function resolve(mover){
