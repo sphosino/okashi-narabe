@@ -52,7 +52,7 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .stage{position:relative}
 .board{display:grid;gap:6px;padding:10px;aspect-ratio:1;width:100%;max-width:100%;box-sizing:border-box;border-radius:20px;
   background:linear-gradient(160deg,var(--choc),var(--choc2));box-shadow:0 6px 0 #3e2014,0 14px 30px -10px #5b2f2066}
-.cell{position:relative;border-radius:22%;background:linear-gradient(150deg,var(--cell2),var(--cell));
+.cell{position:relative;min-width:0;min-height:0;overflow:visible;border-radius:22%;background:linear-gradient(150deg,var(--cell2),var(--cell));
   box-shadow:inset 0 3px 0 #ffffff22,inset 0 -4px 0 #0000002a;display:grid;place-items:center;touch-action:none}
 .cell.tgt::before{content:"";width:26%;height:26%;border-radius:50%;background:#fff8;box-shadow:0 0 0 4px #ffffff33;animation:pulse 1s infinite}
 .cell.tgt:hover,.cell.tgt.over{background:linear-gradient(150deg,#c4825c,#a96a48)}
@@ -312,7 +312,7 @@ function renderStatus(){
     st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
 }
 function renderBoard(){
-  const b=$('board');b.style.gridTemplateColumns=`repeat(${N()},1fr)`;
+  const b=$('board');b.style.gridTemplateColumns=b.style.gridTemplateRows=`repeat(${N()},minmax(0,1fr))`;
   const human=!S.over&&!S.busy&&!S.cpu[S.turn];
   const tg=human?targetsFor(S.sel):new Map();
   b.innerHTML='';
