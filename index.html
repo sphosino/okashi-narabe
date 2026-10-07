@@ -148,7 +148,7 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
   <ol class="rules">
     <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
-    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえで動いた<b>2つのお菓子は固定</b>になり、もう誰も入れかえられません（空いているマスへ動かすのはOK）。</li>
+    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえた<b>自分のお菓子は固定</b>になり、もう誰にも入れかえられません（空いているマスへ動かすのはOK）。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
 </div>
@@ -268,7 +268,7 @@ function actions(p,st=S){const out=[];const cells=st.cells;
     if(cells[j]===null)out.push({t:'move',from:i,to:j});
     else if(canSwap(i,j,p,st))out.push({t:'swap',from:i,to:j})}});
   return out}
-// 入れかえは何回でもOK。入れかえで動いた2つのお菓子は固定（もう入れかえられない。空きマスへの移動はOK）
+// 入れかえは何回でもOK。入れかえた側のお菓子は固定（もう入れかえられない。空きマスへの移動はOK）
 const isFixed=(i,st=S)=>st.fixed.includes(i);
 function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&!isFixed(i,st)&&!isFixed(j,st)}
 function targetsFor(sel){const p=S.turn,t=new Map();
@@ -368,7 +368,7 @@ function doAct(a,fromRect){
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
   else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
-  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;S.fixed.push(a.from,a.to)}
+  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;S.fixed.push(a.to)}
   S.moves++;S.sel=null;S.busy=true;S.passMsg='';
   render();
   // 動いた駒をなめらかに運ぶ
@@ -378,7 +378,7 @@ function doAct(a,fromRect){
   else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
   else{fly(a.to,fromRect||srcRects.from);fly(a.from,srcRects.to)}
   setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},reduced?0:260);
-  if(a.t==='swap'){sfx.swap();setTimeout(()=>{[a.from,a.to].forEach(i=>{const c=$('c'+i);if(c)c.classList.add('stamp')});tone(180,.12,{type:'square',vol:.08})},reduced?0:240)}
+  if(a.t==='swap'){sfx.swap();setTimeout(()=>{{const c=$('c'+a.to);if(c)c.classList.add('stamp')}tone(180,.12,{type:'square',vol:.08})},reduced?0:240)}
   else sfx.drop(p);
   setTimeout(()=>resolve(p),reduced?120:380);
 }

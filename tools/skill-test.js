@@ -48,7 +48,7 @@ function play(seats){ // seats: 3人の頭（席順＝手番順、0番が先手�
     const p=S.turn,f=BRAINS[seats[p]];let best=acts[0],bs=-Infinity;for(const a of acts){const v=f(S,a,p);if(v>bs){bs=v;best=a}}
     S.cells=simulate(S,best,p);if(best.t==='place')S.hands[p]--;
     if(best.t==='move'&&S.fixed.has(best.from)){S.fixed.delete(best.from);S.fixed.add(best.to)}
-    if(best.t==='swap'){S.fixed.add(best.from);S.fixed.add(best.to)}
+    if(best.t==='swap'){S.fixed.add(best.to)}
     S.moves++;
     const ls=lines(S.cells);
     if(ls.length){const eaten=new Set(ls.flatMap(l=>l.w));ls.forEach(l=>S.scores[l.p]=Math.min(TARGET,S.scores[l.p]+1));
