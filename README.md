@@ -1,6 +1,12 @@
 # おかしならべ
 
-3人で遊ぶ、お菓子の並べゲームです。ブラウザで `index.html` を開くだけで遊べます（インストール不要）。
+3人で遊ぶ、お菓子の並べゲームです。
+
+**▶ ここで遊べます：https://sphosino.github.io/okashi-narabe/**
+
+前身の花火版「3人で三目並べ」はこちら：https://sphosino.github.io/okashi-narabe/sanmoku3.html
+
+ダウンロードして `index.html` をブラウザで開いても遊べます（インストール不要）。
 
 ## 遊び方
 
