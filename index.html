@@ -501,14 +501,22 @@ function simulate(a,p){
   if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}
   return c;
 }
-function threats(c,q,hands){ // qが次の一手で揃えられる並びの数（ざっくり）
+function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並びの数
   let t=0;const k=S.need;
   for(const w of WIN){
-    let own=0,empty=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;empty=j}}
-    if(own===k-1&&ne===1&&(hands[q]>0||nbrs(empty).some(j=>c[j]===q&&!w.includes(j))))t++;
+    let own=0,empty=-1,ne=0,g=-1;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;empty=j}else g=j}
+    if(own!==k-1)continue;
+    // 最後の1マスが空いている：置くか、となりから動かして揃う
+    if(ne===1){if(hands[q]>0||nbrs(empty).some(j=>c[j]===q&&!w.includes(j)))t++}
+    // 最後の1マスに他人のお菓子：固定されていなければ、となりの自分のお菓子と入れかえて揃う
+    else if(!fixed.has(g)&&nbrs(g).some(j=>c[j]===q&&!w.includes(j)&&!fixed.has(j)))t++;
   }
   return t;
 }
+function fixedAfter(a,eaten){const f=new Set(S.fixed);
+  if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
+  if(a.t==='swap')f.add(a.to);
+  eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
   let t=0;const k=S.need;if(k<4)return 0;
   for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===k-2&&ne===2)t++}
@@ -519,11 +527,12 @@ function evalAct(a,p){
   let s=0;const hands=S.hands.slice();if(a.t==='place')hands[p]--;
   for(const l of ls)s+=l.p===p?(S.scores[p]+1>=S.target?10000:120):-90;
   // 食べられた後の盤で評価
-  const after=c.slice();ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null}}));
-  s+=threats(after,p,hands)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
+  const after=c.slice(),eaten=[];ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null;eaten.push(i)}}));
+  const fx=fixedAfter(a,eaten);
+  s+=threats(after,p,hands,fx)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
   const nx=(p+1)%3,nx2=(p+2)%3;
-  s-=threats(after,nx,hands)*(S.scores[nx]+1>=S.target?60:22);
-  s-=threats(after,nx2,hands)*(S.scores[nx2]+1>=S.target?40:14);
+  s-=threats(after,nx,hands,fx)*(S.scores[nx]+1>=S.target?60:22);
+  s-=threats(after,nx2,hands,fx)*(S.scores[nx2]+1>=S.target?40:14);
   if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;
   if(a.t==='place')s+=2;
   const n=N(),mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;

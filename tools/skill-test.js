@@ -10,10 +10,20 @@ function actions(S,p){const o=[];if(S.hands[p]>0)S.cells.forEach((v,i)=>{if(v===
 function simulate(S,a,p){const c=S.cells.slice();if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}return c}
 function threats(c,q,hands){let t=0;for(const w of WIN){let own=0,e=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}}
   if(own===NEED-1&&ne===1&&(hands[q]>0||NB[e].some(j=>c[j]===q&&!w.includes(j))))t++}return t}
+// threats2：入れかえで揃う形も数える。最後の1マスに他人のお菓子があり、それが固定されておらず、
+// qがそのとなりに（並びの外で、固定されていない）お菓子を持っていれば、入れかえで揃えられる
+function threats2(c,q,hands,fixed){let t=0;for(const w of WIN){let own=0,e=-1,ne=0,g=-1;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}else g=j}
+  if(own!==NEED-1)continue;
+  if(ne===1){if(hands[q]>0||NB[e].some(j=>c[j]===q&&!w.includes(j)))t++}
+  else if(!fixed.has(g)&&NB[g].some(j=>c[j]===q&&!w.includes(j)&&!fixed.has(j)))t++}return t}
+function fixedAfter(S,a,eaten){const f=new Set(S.fixed);
+  if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
+  if(a.t==='swap')f.add(a.to);
+  eaten.forEach(i=>f.delete(i));return f}
 function buildup(c,q){let t=0;for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===NEED-2&&ne===2)t++}return t}
 
 // ---- プレイヤーの頭の中 ----
-// smart：ゲームに入っているCPUと同じ考え方
+// smartOld：入れかえで揃う形を見落としていた前のCPU
 function evalSmart(S,a,p){const c=simulate(S,a,p),ls=lines(c);let s=0;const hands=S.hands.slice();if(a.t==='place')hands[p]--;
   for(const l of ls)s+=l.p===p?(S.scores[p]+1>=TARGET?10000:120):-90;
   const after=c.slice();ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null}}));
@@ -21,6 +31,17 @@ function evalSmart(S,a,p){const c=simulate(S,a,p),ls=lines(c);let s=0;const hand
   const nx=(p+1)%3,nx2=(p+2)%3;
   s-=threats(after,nx,hands)*(S.scores[nx]+1>=TARGET?60:22);
   s-=threats(after,nx2,hands)*(S.scores[nx2]+1>=TARGET?40:14);
+  if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;if(a.t==='place')s+=2;
+  const mid=(N-1)/2;s-=(Math.abs(Math.floor(a.to/N)-mid)+Math.abs(a.to%N-mid))*.6;return s+Math.random()*4}
+// smart：ゲーム内のCPU。smartOldに加えて、入れかえで揃う「あと1つ」も見る
+function evalSmart2(S,a,p){const c=simulate(S,a,p),ls=lines(c);let s=0;const hands=S.hands.slice();if(a.t==='place')hands[p]--;
+  for(const l of ls)s+=l.p===p?(S.scores[p]+1>=TARGET?10000:120):-90;
+  const after=c.slice(),eaten=[];ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null;eaten.push(i)}}));
+  const fx=fixedAfter(S,a,eaten);
+  s+=threats2(after,p,hands,fx)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
+  const nx=(p+1)%3,nx2=(p+2)%3;
+  s-=threats2(after,nx,hands,fx)*(S.scores[nx]+1>=TARGET?60:22);
+  s-=threats2(after,nx2,hands,fx)*(S.scores[nx2]+1>=TARGET?40:14);
   if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;if(a.t==='place')s+=2;
   const mid=(N-1)/2;s-=(Math.abs(Math.floor(a.to/N)-mid)+Math.abs(a.to%N-mid))*.6;return s+Math.random()*4}
 // greedy：揃えられるなら揃える。それ以外は適当（守りも先読みもしない）
@@ -36,7 +57,7 @@ function evalCasual(S,a,p){
   s+=openSpots(c,p).size*10;
   s+=NB[a.to].filter(j=>c[j]===p).length*2;
   return s+Math.random()*3}
-const BRAINS={smart:evalSmart,greedy:evalGreedy,random:evalRandom,casual:evalCasual};
+const BRAINS={smart:evalSmart2,smartOld:evalSmart,greedy:evalGreedy,random:evalRandom,casual:evalCasual};
 
 function play(seats){ // seats: 3人の頭（席順＝手番順、0番が先手）
   const S={cells:Array(N*N).fill(null),hands:[HAND,HAND,HAND],scores:[0,0,0],fixed:new Set(),turn:0,moves:0};
