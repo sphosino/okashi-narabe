@@ -139,6 +139,9 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
     <label for="need">並べる数
       <select id="need"><option value="3">3つ</option><option value="4" selected>4つ</option></select>
     </label>
+    <label for="handcount">手持ち
+      <select id="handcount"><option value="auto" selected>おまかせ</option><option value="5">5個</option><option value="6">6個</option><option value="7">7個</option><option value="8">8個</option></select>
+    </label>
     <label for="level">CPU
       <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
     </label>
@@ -201,6 +204,8 @@ const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
 const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
+// 手持ちの数：「おまかせ」なら盤と並べる数から決める（4つ並べなら6個）。数を選んだらその数
+const handSize=()=>(!S.handSel||S.handSel==='auto')?handFor(S.size,S.need):+S.handSel;
 
 const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
@@ -508,7 +513,7 @@ function undo(){
 function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
   S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;WIN=windows();setRules();
-  const h=handFor(S.size,S.need);S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
+  S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
   S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
 }
@@ -668,15 +673,15 @@ function cpuTurn(){
 $('reset').addEventListener('click',()=>newGame(true));
 $('undo').addEventListener('click',undo);
 function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`}
-['size','need','target'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
+['size','need','target','handcount'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
 function start(data){
   if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
   S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
-  if(!S.level)S.level='normal';$('level').value=S.level;
+  if(!S.level)S.level='normal';$('level').value=S.level;$('handcount').value=S.handSel||'auto';
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
-  if(S.cells.length!==S.size*S.size){const h=handFor(S.size,S.need);S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
+  if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
 }
 window.claude?.hot?.snapshot?.(()=>({S,hist}));
