@@ -139,6 +139,9 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
     <label for="need">並べる数
       <select id="need"><option value="3">3つ</option><option value="4" selected>4つ</option></select>
     </label>
+    <label for="level">CPU
+      <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
+    </label>
     <label for="target">目標
       <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
     </label>
@@ -199,7 +202,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
 const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
 
-const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],
+const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
   busy:false,sel:null,eating:[],passMsg:''};
 let hist=[];
@@ -567,8 +570,8 @@ document.addEventListener('keydown',e=>{
 });
 
 // ================= CPU =================
-function simulate(a,p){
-  const c=S.cells.slice();
+function simulate(a,p,st=S){
+  const c=st.cells.slice();
   if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}
   return c;
 }
@@ -584,7 +587,7 @@ function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並び�
   }
   return t;
 }
-function fixedAfter(a,eaten){const f=new Set(S.fixed);
+function fixedAfter(a,eaten,st=S){const f=new Set(st.fixed);
   if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
   if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.from);else f.add(a.from)}
   eaten.forEach(i=>f.delete(i));return f}
@@ -593,25 +596,68 @@ function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
   for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===k-2&&ne===2)t++}
   return t;
 }
-function evalAct(a,p){
-  const c=simulate(a,p),ls=lines(c);
-  let s=0;const hands=S.hands.slice();if(a.t==='place')hands[p]--;
-  for(const l of ls)s+=l.p===p?(S.scores[p]+1>=S.target?10000:120):-90;
+function evalAct(a,p,st=S){
+  const c=simulate(a,p,st),ls=lines(c);
+  let s=0;const hands=st.hands.slice();if(a.t==='place')hands[p]--;
+  for(const l of ls)s+=l.p===p?(st.scores[p]+1>=S.target?10000:120):-90;
   // 食べられた後の盤で評価
   const after=c.slice(),eaten=[];ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null;eaten.push(i)}}));
-  const fx=fixedAfter(a,eaten);
+  const fx=fixedAfter(a,eaten,st);
   s+=threats(after,p,hands,fx)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
   const nx=(p+1)%3,nx2=(p+2)%3;
-  s-=threats(after,nx,hands,fx)*(S.scores[nx]+1>=S.target?60:22);
-  s-=threats(after,nx2,hands,fx)*(S.scores[nx2]+1>=S.target?40:14);
+  s-=threats(after,nx,hands,fx)*(st.scores[nx]+1>=S.target?60:22);
+  s-=threats(after,nx2,hands,fx)*(st.scores[nx2]+1>=S.target?40:14);
   if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;
   if(a.t==='place')s+=2;
   const n=N(),mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;
   return s+Math.random()*4;
 }
+// やさしい：目の前だけ見る（揃える・相手の「あと1つ」のマスをふさぐ・自分の「あと1つ」を増やす）
+function openSpots(c,q){const s=new Set(),k=S.need;for(const w of WIN){let own=0,e=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}}if(own===k-1&&ne===1)s.add(e)}return s}
+function evalEasy(a,p){
+  const c=simulate(a,p),ls=lines(c);let s=0;
+  for(const l of ls)s+=l.p===p?100:-100;
+  for(const q of[(p+1)%3,(p+2)%3])if(openSpots(S.cells,q).has(a.to))s+=30;
+  s+=openSpots(c,p).size*10+nbrs(a.to).filter(j=>c[j]===p).length*2;
+  return s+Math.random()*3;
+}
+// つよい：2手読み。よさそうな手を10個にしぼり、それぞれに次の人の一番いい返しを当てて、その後の盤で選ぶ
+function applyOn(st,a,p){
+  const T={cells:simulate(a,p,st),hands:st.hands.slice(),scores:st.scores.slice(),fixed:st.fixed.slice()};
+  if(a.t==='place')T.hands[p]--;
+  if(a.t==='move'){const k=T.fixed.indexOf(a.from);if(k>=0)T.fixed[k]=a.to}
+  if(a.t==='swap'){if(T.fixed.includes(a.from)&&T.fixed.includes(a.to))T.fixed=T.fixed.filter(i=>i!==a.from);else T.fixed.push(a.from)}
+  const ls=lines(T.cells);
+  if(ls.length){const e=new Set(ls.flatMap(l=>l.w));ls.forEach(l=>T.scores[l.p]=Math.min(S.target,T.scores[l.p]+1));
+    e.forEach(i=>{T.hands[T.cells[i]]++;T.cells[i]=null});T.fixed=T.fixed.filter(i=>!e.has(i))}
+  return T;
+}
+function boardValue(T,p){ // 次の人が打ち終わった盤を、pから見て点数にする
+  const nx=(p+1)%3,nx2=(p+2)%3,fx=new Set(T.fixed);
+  if(T.scores[p]>=S.target)return 1e6;if(T.scores[nx]>=S.target||T.scores[nx2]>=S.target)return -1e6;
+  let v=T.scores[p]*300-(T.scores[nx]+T.scores[nx2])*150;
+  v+=threats(T.cells,p,T.hands,fx)*14+buildup(T.cells,p)*3;
+  v-=threats(T.cells,nx2,T.hands,fx)*(T.scores[nx2]+1>=S.target?60:22); // この次に打つのは nx2
+  v-=threats(T.cells,nx,T.hands,fx)*14;
+  return v;
+}
+function pickHard(p){
+  const cand=actions(p).map(a=>({a,v:evalAct(a,p)})).sort((x,y)=>y.v-x.v).slice(0,10);
+  let best=cand[0].a,bs=-Infinity;
+  for(const {a} of cand){
+    const S1=applyOn(S,a,p);if(S1.scores[p]>=S.target)return a;
+    const nx=(p+1)%3,acts=actions(nx,S1);let b=null,bv=-Infinity;
+    for(const x of acts){const v=evalAct(x,nx,S1);if(v>bv){bv=v;b=x}}
+    const v=boardValue(b?applyOn(S1,b,nx):S1,p)+Math.random()*2;
+    if(v>bs){bs=v;best=a}
+  }
+  return best;
+}
 function cpuTurn(){
   const p=S.turn,acts=actions(p);if(!acts.length){endTurn();return}
-  let best=acts[0],bs=-Infinity;for(const a of acts){const s=evalAct(a,p);if(s>bs){bs=s;best=a}}
+  let best=acts[0];
+  if(S.level==='hard')best=pickHard(p);
+  else{const f=S.level==='easy'?evalEasy:evalAct;let bs=-Infinity;for(const a of acts){const s=f(a,p);if(s>bs){bs=s;best=a}}}
   if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
     const mv=S.moves;cpuPending=true;
     setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:380)}
@@ -623,10 +669,12 @@ $('reset').addEventListener('click',()=>newGame(true));
 $('undo').addEventListener('click',undo);
 function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`}
 ['size','need','target'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
+$('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
 function start(data){
   if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
   S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
+  if(!S.level)S.level='normal';$('level').value=S.level;
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
   if(S.cells.length!==S.size*S.size){const h=handFor(S.size,S.need);S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
