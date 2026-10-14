@@ -117,6 +117,8 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
 .rules{background:var(--card);border-radius:16px;padding:12px 14px 12px 30px;margin:0;font-size:.82rem;line-height:1.75;color:var(--ink);box-shadow:0 3px 0 #f0b9c9}
 .rules b{color:var(--p0)}
 @media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.hand .h{width:38px;height:38px}h1{font-size:1.6rem}}
+/* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
+body.demo .controls,body.demo .rules,body.demo .chip{display:none}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}
 </style>
 
@@ -205,6 +207,8 @@ const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&qu
 const cssv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const col=p=>cssv(PC[p]);
 const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
+const DEMO=new URLSearchParams(location.search).has('demo'); // 広告用デモ：恋ボーナスで逆転する試合を探して再生する
+let demoMsg='';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
 const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
@@ -335,6 +339,7 @@ function renderStatus(){
   if(S.over){st.innerHTML=S.winners.length===1?`${nm(S.winners[0])} の勝ち！`:`${S.winners.map(nm).join(' と ')} が同点！`;return}
   if(S.passMsg){st.innerHTML=S.passMsg;return}
   if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
+  if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
   else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
   else{const left=MAXMOVES-S.moves;
@@ -342,7 +347,7 @@ function renderStatus(){
 }
 function renderBoard(){
   const b=$('board');b.style.gridTemplateColumns=b.style.gridTemplateRows=`repeat(${N()},minmax(0,1fr))`;
-  const human=!S.over&&!S.busy&&!S.cpu[S.turn];
+  const human=!DEMO&&!S.over&&!S.busy&&!S.cpu[S.turn];
   const tg=human?targetsFor(S.sel):new Map();
   b.innerHTML='';
   S.cells.forEach((v,i)=>{
@@ -363,7 +368,7 @@ function renderBoard(){
   $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
 }
 function renderTray(){
-  const t=$('tray'),p=S.turn,human=!S.over&&!S.busy&&!S.cpu[p];
+  const t=$('tray'),p=S.turn,human=!DEMO&&!S.over&&!S.busy&&!S.cpu[p];
   let hand='';
   for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+SWEET[p]+'を選ぶ"':''}>${sweet(p)}</div>`;
   t.innerHTML=`<span class="lbl">${S.over?'':esc(S.names[p])+'の手持ち'}</span><div class="hand" id="hand">${hand||(S.over?'':'<span class="note">手持ちなし。盤のお菓子を動かそう</span>')}</div>
@@ -495,7 +500,8 @@ function resolve(mover){
     if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
     sfx.yum(n);
     const winners=[0,1,2].filter(p=>S.scores[p]>=S.target);
-    if(winners.length){finish(winners.length>1&&winners.includes(mover)?[mover]:winners);return}
+    if(winners.length){const w=winners.length>1&&winners.includes(mover)?[mover]:winners;
+      if(loved){render();setTimeout(()=>{if(alive())finish(w)},reduced?600:1700)}else finish(w);return} // 恋ボーナスで決めたら、演出を見せてから結果を出す
     render();setTimeout(endTurn,reduced?100:650);
   },reduced?200:720);
 }
@@ -530,7 +536,7 @@ function newGame(advance){
 
 // ================= 操作（ドラッグ / タップ） =================
 let drag=null;
-function canAct(){return !S.over&&!S.busy&&!S.cpu[S.turn]}
+function canAct(){return !DEMO&&!S.over&&!S.busy&&!S.cpu[S.turn]}
 function selFromEl(el){
   if(!el)return null;
   const h=el.closest('#hand .h');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
@@ -683,6 +689,58 @@ function cpuTurn(){
   else doAct(best);
 }
 
+// ================= 広告用デモ（?demo） =================
+// 裏でCPU（ふつう）同士の試合を何本も回し、「恋ボーナスで逆転して勝つ」試合を見つけて、画面で1手ずつ再生する
+function demoSim(){ // 1試合を裏で回して、手の記録を返す（時間切れ・同点は null）
+  const h=handSize();let st={cells:Array(N()*N()).fill(null),hands:[h,h,h],scores:[0,0,0],fixed:[]},turn=S.start;const log=[];
+  for(let m=0;m<MAXMOVES;m++){
+    let acts=actions(turn,st),k=0;while(!acts.length&&k<3){turn=(turn+1)%3;acts=actions(turn,st);k++}
+    if(!acts.length)return null;
+    let best=acts[0],bs=-Infinity;for(const a of acts){const v=evalAct(a,turn,st);if(v>bs){bs=v;best=a}}
+    const ls=lines(simulate(best,turn,st)),g=gainOf(ls,turn,loveTo(best,st));
+    log.push({a:best,p:turn,love:g[turn]>ls.filter(l=>l.p===turn).length,before:st.scores.slice()});
+    st=applyOn(st,best,turn);
+    const w=[0,1,2].filter(q=>st.scores[q]>=S.target);
+    if(w.length)return w.length===1||w.includes(turn)?{log,winner:w.length===1?w[0]:turn}:null;
+    turn=(turn+1)%3;
+  }
+  return null;
+}
+function demoScore(r){ // 勝った人の恋ボーナスが、決勝点で、しかも負けていた所からなら一番いい
+  if(!r)return -1;const i=r.log.findIndex(x=>x.love&&x.p===r.winner);if(i<0)return -1;
+  const x=r.log[i],other=Math.max(...x.before.filter((_,q)=>q!==x.p));
+  return (i===r.log.length-1?3:0)+(x.before[x.p]<other?2:x.before[x.p]===other?1:0)-r.log.length/50;
+}
+function demoStart(){
+  if(!alive())return;
+  newGame(true);demoMsg='いい試合をさがし中…';render();
+  const t0=performance.now();let best=null,bs=-1,n=0;
+  const batch=()=>{if(!alive())return;
+    const t1=performance.now();do{const r=demoSim(),v=demoScore(r);n++;if(v>bs){bs=v;best=r}}while(performance.now()-t1<50); // 画面が固まらないよう50msずつ
+    if(bs<0||(bs<4&&performance.now()-t0<8000)){setTimeout(batch,0);return} // 「負けからの決勝点」が出るまで、最大8秒さがす
+    console.log(`デモ：${n}試合から選んだ（${((performance.now()-t0)/1000).toFixed(1)}秒）`);
+    demoMsg='';render();setTimeout(()=>demoReplay(best.log),800)};
+  setTimeout(batch,50);
+}
+function demoReplay(log){
+  let i=0;
+  const step=()=>{if(!alive())return;
+    if(S.over){setTimeout(demoStart,6000);return}
+    if(S.busy){setTimeout(step,120);return}
+    const x=log[i++];if(!x||S.turn!==x.p){setTimeout(demoStart,1000);return} // 記録とずれたら、次の試合へ
+    demoMsg=x.love?`${nm(x.p)} の<b style="color:#ff2f6d">恋モード</b>のお菓子が動く…！`:'';render();
+    const think=x.love?1800:550; // 恋ボーナスの手は「ため」を長くする
+    if(x.a.t!=='place')setTimeout(()=>{const el=$('pc'+x.a.from);if(el)el.classList.add('sel');sfx.pick()},think-400);
+    setTimeout(()=>{if(alive()&&!S.busy&&!S.over){doAct(x.a);setTimeout(step,150)}},think)};
+  step();
+}
+function demoInit(){
+  document.body.classList.add('demo');
+  S.names=SWEET.slice();S.cpu=[false,false,false];$('love').value='on';
+  S.names.forEach((n,i)=>{const e=$('name'+i);if(e)e.value=n});
+  demoStart();
+}
+
 // ================= 起動 =================
 $('reset').addEventListener('click',()=>newGame(true));
 $('undo').addEventListener('click',undo);
@@ -697,6 +755,7 @@ function start(data){
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
+  if(DEMO)demoInit();
 }
 window.claude?.hot?.snapshot?.(()=>({S,hist}));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
