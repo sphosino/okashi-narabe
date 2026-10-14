@@ -145,6 +145,9 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
     <label for="level">CPU
       <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
     </label>
+    <label for="love">恋ボーナス
+      <select id="love"><option value="on" selected>あり</option><option value="off">なし</option></select>
+    </label>
     <label for="target">目標
       <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
     </label>
@@ -158,6 +161,7 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
     <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえられた<b>相手のお菓子は一目ぼれして「恋モード」</b>（目がハート）になります。</li>
     <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえられた相手のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
+    <li id="ruleLove"><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
 </div>
@@ -207,7 +211,7 @@ const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
 // 手持ちの数：「おまかせ」なら盤と並べる数から決める（4つ並べなら6個）。数を選んだらその数
 const handSize=()=>(!S.handSel||S.handSel==='auto')?handFor(S.size,S.need):+S.handSel;
 
-const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',
+const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
   busy:false,sel:null,eating:[],passMsg:''};
 let hist=[];
@@ -290,6 +294,11 @@ function actions(p,st=S){const out=[];const cells=st.cells;
 // ふつう同士・恋モード同士なら入れかえられる（ふつうと恋モードは入れかえられない）。
 // 恋モード同士で入れかえると、入れかえられた相手のお菓子は目がさめてふつうに戻る。空きマスへの移動はいつでもOK
 const isFixed=(i,st=S)=>st.fixed.includes(i);
+// 恋ボーナス：恋モードの自分のお菓子を動かした（入れかえ含む）手なら、そのお菓子の行き先。それ以外は null
+const loveTo=(a,st=S)=>S.loveBonus&&a.t!=='place'&&isFixed(a.from,st)?a.to:null;
+// 手を打ったあとの盤 c で、各プレイヤーが取る点（揃った並び1つにつき1点＋恋ボーナス）
+function gainOf(ls,mover,lt){const g=[0,0,0];ls.forEach(l=>g[l.p]++);
+  if(lt!==null&&ls.some(l=>l.p===mover&&l.w.includes(lt)))g[mover]++;return g}
 function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&isFixed(i,st)===isFixed(j,st)}
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
@@ -384,7 +393,7 @@ setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render
 const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
 function doAct(a,fromRect){
   if(S.over||S.busy)return;
-  const p=S.turn;hist.push(snap());
+  const p=S.turn;hist.push(snap());S.lastLove=loveTo(a);
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
   else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
@@ -470,7 +479,7 @@ function resolve(mover){
   S.eating=cellsEaten;render();
   cellsEaten.forEach((i,k)=>setTimeout(()=>{const c=centerOf(i),v=S.cells[i];burst(c.x,c.y,{n:16,colors:[col(v),'#fff',cssv('--gold'),'#ff9dbd']});sfx.chomp()},120+k*70));
   setTimeout(()=>{
-    const gain=[0,0,0];ls.forEach(l=>gain[l.p]++);
+    const gain=gainOf(ls,mover,S.lastLove),loved=gain[mover]>ls.filter(l=>l.p===mover).length;
     const owners=new Map();cellsEaten.forEach(i=>owners.set(i,S.cells[i]));
     cellsEaten.forEach(i=>{S.hands[S.cells[i]]++;S.cells[i]=null});
     S.fixed=S.fixed.filter(i=>!cellsEaten.includes(i));
@@ -481,7 +490,8 @@ function resolve(mover){
     const n=ls.length,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height/2};
     const words=['おいしい！','もぐもぐ！','あまーい！','しあわせ〜'];
     const gifted=gain.some((g,p)=>g&&p!==mover);
-    text(mid.x,mid.y-bc.height*.18,n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
+    if(loved){const pt=centerOf(S.lastLove);setTimeout(()=>{text(pt.x,pt.y-34,'恋の力 +1',cssv('--p0'),30,90);burst(pt.x,pt.y,{n:30,speed:6,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']})},ls.length*120+150)}
+    text(mid.x,mid.y-bc.height*.18,loved?'ラブラブ！':n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
     if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
     sfx.yum(n);
     const winners=[0,1,2].filter(p=>S.scores[p]>=S.target);
@@ -512,7 +522,7 @@ function undo(){
 }
 function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
-  S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;WIN=windows();setRules();
+  S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;WIN=windows();setRules();
   S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
   S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
@@ -586,9 +596,11 @@ function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並び�
     let own=0,empty=-1,ne=0,g=-1;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;empty=j}else g=j}
     if(own!==k-1)continue;
     // 最後の1マスが空いている：置くか、となりから動かして揃う
-    if(ne===1){if(hands[q]>0||nbrs(empty).some(j=>c[j]===q&&!w.includes(j)))t++}
+    // 恋ボーナスありなら、恋モードのお菓子を動かして揃えられる並びは2点ぶんとして数える
+    const by=ok=>nbrs(ne===1?empty:g).filter(j=>c[j]===q&&!w.includes(j)&&ok(j));
+    if(ne===1){if(S.loveBonus&&by(j=>fixed.has(j)).length)t+=2;else if(hands[q]>0||by(()=>true).length)t++}
     // 最後の1マスに他人のお菓子：となりに同じモード（ふつう同士・恋モード同士）の自分のお菓子があれば、入れかえて揃う
-    else if(nbrs(g).some(j=>c[j]===q&&!w.includes(j)&&fixed.has(j)===fixed.has(g)))t++;
+    else if(by(j=>fixed.has(j)===fixed.has(g)).length)t+=S.loveBonus&&fixed.has(g)?2:1;
   }
   return t;
 }
@@ -602,16 +614,18 @@ function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
   return t;
 }
 function evalAct(a,p,st=S){
-  const c=simulate(a,p,st),ls=lines(c);
+  const c=simulate(a,p,st),ls=lines(c),gain=gainOf(ls,p,loveTo(a,st));
   let s=0;const hands=st.hands.slice();if(a.t==='place')hands[p]--;
-  for(const l of ls)s+=l.p===p?(st.scores[p]+1>=S.target?10000:120):-90;
+  if(gain[p])s+=st.scores[p]+gain[p]>=S.target?10000:120*gain[p];
+  for(const q of[0,1,2])if(q!==p)s-=90*gain[q];
   // 食べられた後の盤で評価
   const after=c.slice(),eaten=[];ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null;eaten.push(i)}}));
   const fx=fixedAfter(a,eaten,st);
   s+=threats(after,p,hands,fx)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
   const nx=(p+1)%3,nx2=(p+2)%3;
-  s-=threats(after,nx,hands,fx)*(st.scores[nx]+1>=S.target?60:22);
-  s-=threats(after,nx2,hands,fx)*(st.scores[nx2]+1>=S.target?40:14);
+  const reach=S.loveBonus?2:1; // 次の一手で取りうる点
+  s-=threats(after,nx,hands,fx)*(st.scores[nx]+reach>=S.target?60:22);
+  s-=threats(after,nx2,hands,fx)*(st.scores[nx2]+reach>=S.target?40:14);
   if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;
   if(a.t==='place')s+=2;
   const n=N(),mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;
@@ -620,20 +634,20 @@ function evalAct(a,p,st=S){
 // やさしい：目の前だけ見る（揃える・相手の「あと1つ」のマスをふさぐ・自分の「あと1つ」を増やす）
 function openSpots(c,q){const s=new Set(),k=S.need;for(const w of WIN){let own=0,e=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}}if(own===k-1&&ne===1)s.add(e)}return s}
 function evalEasy(a,p){
-  const c=simulate(a,p),ls=lines(c);let s=0;
-  for(const l of ls)s+=l.p===p?100:-100;
+  const c=simulate(a,p),ls=lines(c),gain=gainOf(ls,p,loveTo(a));let s=0;
+  for(const q of[0,1,2])s+=(q===p?100:-100)*gain[q];
   for(const q of[(p+1)%3,(p+2)%3])if(openSpots(S.cells,q).has(a.to))s+=30;
   s+=openSpots(c,p).size*10+nbrs(a.to).filter(j=>c[j]===p).length*2;
   return s+Math.random()*3;
 }
 // つよい：2手読み。よさそうな手を10個にしぼり、それぞれに次の人の一番いい返しを当てて、その後の盤で選ぶ
 function applyOn(st,a,p){
-  const T={cells:simulate(a,p,st),hands:st.hands.slice(),scores:st.scores.slice(),fixed:st.fixed.slice()};
+  const T={cells:simulate(a,p,st),hands:st.hands.slice(),scores:st.scores.slice(),fixed:st.fixed.slice()},lt=loveTo(a,st);
   if(a.t==='place')T.hands[p]--;
   if(a.t==='move'){const k=T.fixed.indexOf(a.from);if(k>=0)T.fixed[k]=a.to}
   if(a.t==='swap'){if(T.fixed.includes(a.from)&&T.fixed.includes(a.to))T.fixed=T.fixed.filter(i=>i!==a.from);else T.fixed.push(a.from)}
   const ls=lines(T.cells);
-  if(ls.length){const e=new Set(ls.flatMap(l=>l.w));ls.forEach(l=>T.scores[l.p]=Math.min(S.target,T.scores[l.p]+1));
+  if(ls.length){const e=new Set(ls.flatMap(l=>l.w)),g=gainOf(ls,p,lt);[0,1,2].forEach(q=>T.scores[q]=Math.min(S.target,T.scores[q]+g[q]));
     e.forEach(i=>{T.hands[T.cells[i]]++;T.cells[i]=null});T.fixed=T.fixed.filter(i=>!e.has(i))}
   return T;
 }
@@ -642,7 +656,7 @@ function boardValue(T,p){ // 次の人が打ち終わった盤を、pから見�
   if(T.scores[p]>=S.target)return 1e6;if(T.scores[nx]>=S.target||T.scores[nx2]>=S.target)return -1e6;
   let v=T.scores[p]*300-(T.scores[nx]+T.scores[nx2])*150;
   v+=threats(T.cells,p,T.hands,fx)*14+buildup(T.cells,p)*3;
-  v-=threats(T.cells,nx2,T.hands,fx)*(T.scores[nx2]+1>=S.target?60:22); // この次に打つのは nx2
+  v-=threats(T.cells,nx2,T.hands,fx)*(T.scores[nx2]+(S.loveBonus?2:1)>=S.target?60:22); // この次に打つのは nx2
   v-=threats(T.cells,nx,T.hands,fx)*14;
   return v;
 }
@@ -672,14 +686,14 @@ function cpuTurn(){
 // ================= 起動 =================
 $('reset').addEventListener('click',()=>newGame(true));
 $('undo').addEventListener('click',undo);
-function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`}
-['size','need','target','handcount'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
+function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus}
+['size','need','target','handcount','love'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
 function start(data){
   if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
   S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
-  if(!S.level)S.level='normal';$('level').value=S.level;$('handcount').value=S.handSel||'auto';
+  if(!S.level)S.level='normal';$('level').value=S.level;if(S.loveBonus===undefined)S.loveBonus=true;$('love').value=S.loveBonus?'on':'off';$('handcount').value=S.handSel||'auto';
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
