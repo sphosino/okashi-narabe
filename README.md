@@ -44,6 +44,8 @@ URLの最後に `?demo` を付けて開くと（例：`index.html?demo`）、CPU
 | `cpu.js` | CPU（やさしい・ふつう・つよい）。`rules.js` だけを使う |
 | `tools/skill-test.js` | CPU同士を大量に戦わせて、実力差がどれくらい勝敗に出るかを調べるスクリプト |
 | `tools/love-bonus-test.js` | 恋ボーナスのあり／なしをCPU同士で比べるスクリプト |
+| `tools/hand-size-test.js` | 手持ちの数で、時間切れや「動かす」の割合がどう変わるかを調べるスクリプト |
+| `docs/` | 調べたことの記録（[手持ちの数と時間切れ](docs/hand-size.md)） |
 
 見た目を変えるときは `index.html` だけ、ルールを変えるときは `rules.js`（とCPUの考え方を `cpu.js`）だけを直します。`tools/` のスクリプトもゲームと同じ `rules.js` と `cpu.js` を使うので、ルールを変えたらそのまま試せます。
 
