@@ -168,6 +168,8 @@ body.demo .controls,body.demo .rules,body.demo .chip{display:none}
   </ol>
 </div>
 
+<script src="rules.js"></script>
+<script src="cpu.js"></script>
 <script>
 const PC=['--p0','--p1','--p2'],SWEET=['マカロン','キャンディ','ゼリー'];
 const faceNormal=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
@@ -210,10 +212,9 @@ const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
 const DEMO=new URLSearchParams(location.search).has('demo'); // 広告用デモ：恋ボーナスで逆転する試合を探して再生する
 let demoMsg='';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MAXMOVES=150; // 長引いたらここで時間切れ（点が多い人の勝ち）
-const handFor=(size,need)=>need>=4?6:(size>=6?5:4);
-// 手持ちの数：「おまかせ」なら盤と並べる数から決める（4つ並べなら6個）。数を選んだらその数
-const handSize=()=>(!S.handSel||S.handSel==='auto')?handFor(S.size,S.need):+S.handSel;
+const R=Okashi,CPU=OkashiCPU; // ルール（rules.js）とCPU（cpu.js）。この下は画面と操作だけ
+const MAXMOVES=R.MAXMOVES;
+const handSize=()=>R.handFor(S.size,S.need,S.handSel);
 
 const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
@@ -275,39 +276,15 @@ function frame(){
 function rectOf(i){const el=$('c'+i);return el?el.getBoundingClientRect():null}
 function centerOf(i){const r=rectOf(i);return r?{x:r.left+r.width/2,y:r.top+r.height/2}:{x:W/2,y:H/2}}
 
-// ================= ルール =================
+// ================= ルール（中身は rules.js） =================
+let C={size:6,need:4,target:3,loveBonus:true,maxMoves:MAXMOVES}; // 今のゲームのルール設定
+function setCfg(){C={size:S.size,need:S.need,target:S.target,loveBonus:S.loveBonus,maxMoves:MAXMOVES}}
 const N=()=>S.size;
-const DIR8=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-function nbrs(i){const n=N(),r=Math.floor(i/n),c=i%n,out=[];for(const[dr,dc]of DIR8){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<n&&cc>=0&&cc<n)out.push(rr*n+cc)}return out}
-function windows(){const n=N(),k=S.need,out=[];
-  for(let r=0;r<n;r++)for(let c=0;c<n;c++)for(const[dr,dc]of[[0,1],[1,0],[1,1],[1,-1]]){
-    const er=r+dr*(k-1),ec=c+dc*(k-1);if(er<0||er>=n||ec<0||ec>=n)continue;
-    const w=[];for(let s=0;s<k;s++)w.push((r+dr*s)*n+c+dc*s);out.push(w)}
-  return out}
-let WIN=[];
-function lines(cells=S.cells){const out=[];
-  for(const w of WIN){const p=cells[w[0]];if(p!==null&&w.every(j=>cells[j]===p))out.push({p,w})}
-  return out}
-function actions(p,st=S){const out=[];const cells=st.cells;
-  if(st.hands[p]>0)cells.forEach((v,i)=>{if(v===null)out.push({t:'place',to:i})});
-  cells.forEach((v,i)=>{if(v!==p)return;for(const j of nbrs(i)){
-    if(cells[j]===null)out.push({t:'move',from:i,to:j});
-    else if(canSwap(i,j,p,st))out.push({t:'swap',from:i,to:j})}});
-  return out}
-// 入れかえは何回でもOK。入れかえられた相手のお菓子は一目ぼれして「恋モード」になる。
-// ふつう同士・恋モード同士なら入れかえられる（ふつうと恋モードは入れかえられない）。
-// 恋モード同士で入れかえると、入れかえられた相手のお菓子は目がさめてふつうに戻る。空きマスへの移動はいつでもOK
-const isFixed=(i,st=S)=>st.fixed.includes(i);
-// 恋ボーナス：恋モードの自分のお菓子を動かした（入れかえ含む）手なら、そのお菓子の行き先。それ以外は null
-const loveTo=(a,st=S)=>S.loveBonus&&a.t!=='place'&&isFixed(a.from,st)?a.to:null;
-// 手を打ったあとの盤 c で、各プレイヤーが取る点（揃った並び1つにつき1点＋恋ボーナス）
-function gainOf(ls,mover,lt){const g=[0,0,0];ls.forEach(l=>g[l.p]++);
-  if(lt!==null&&ls.some(l=>l.p===mover&&l.w.includes(lt)))g[mover]++;return g}
-function canSwap(i,j,p,st=S){const v=st.cells[j];return v!==null&&v!==p&&isFixed(i,st)===isFixed(j,st)}
+const isFixed=i=>R.isLove(S,i);
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
   if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
-  else for(const j of nbrs(sel.i)){if(S.cells[j]===null)t.set(j,'move');else if(canSwap(sel.i,j,p))t.set(j,'swap')}
+  else for(const j of R.geo(C).NB[sel.i]){if(S.cells[j]===null)t.set(j,'move');else if(R.canSwap(S,sel.i,j,p))t.set(j,'swap')}
   return t}
 
 // ================= 描画 =================
@@ -398,15 +375,11 @@ setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render
 const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
 function doAct(a,fromRect){
   if(S.over||S.busy)return;
-  const p=S.turn;hist.push(snap());S.lastLove=loveTo(a);
+  const p=S.turn;hist.push(snap());
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
-  if(a.t==='place'){S.cells[a.to]=p;S.hands[p]--}
-  else if(a.t==='move'){S.cells[a.to]=p;S.cells[a.from]=null;const k=S.fixed.indexOf(a.from);if(k>=0)S.fixed[k]=a.to}
-  else{const o=S.cells[a.to];S.cells[a.to]=p;S.cells[a.from]=o;
-    a.victim=o;
-    if(isFixed(a.from)&&isFixed(a.to)){a.wake=true;S.fixed=S.fixed.filter(i=>i!==a.from)} // 恋モード同士：ぶつけられた相手のお菓子が目をさます
-    else S.fixed.push(a.from)}                                                           // ふつう同士：ぶつけられた相手のお菓子が一目ぼれ
-  S.moves++;S.sel=null;S.busy=true;S.passMsg='';
+  const r=R.act(C,S,a,p);Object.assign(S,r.state);
+  S.lastLove=r.loveTo;a.victim=r.victim;a.wake=r.wake; // 入れかえアニメで使う
+  S.sel=null;S.busy=true;S.passMsg='';
   render();
   // 動いた駒をなめらかに運ぶ
   const fly=(i,from)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
@@ -478,18 +451,14 @@ function swapAnim(a,p,dropRect,src){
 function trayRect(){const h=document.querySelector('#hand .h');return h?h.getBoundingClientRect():$('tray').getBoundingClientRect()}
 function resolve(mover){
   if(!alive())return;
-  const ls=lines();
+  const r=R.eat(C,S,mover,S.lastLove),ls=r.lines,cellsEaten=r.eaten,cells0=S.cells;
   if(!ls.length){endTurn();return}
-  const cellsEaten=[...new Set(ls.flatMap(l=>l.w))];
   S.eating=cellsEaten;render();
   cellsEaten.forEach((i,k)=>setTimeout(()=>{const c=centerOf(i),v=S.cells[i];burst(c.x,c.y,{n:16,colors:[col(v),'#fff',cssv('--gold'),'#ff9dbd']});sfx.chomp()},120+k*70));
   setTimeout(()=>{
-    const gain=gainOf(ls,mover,S.lastLove),loved=gain[mover]>ls.filter(l=>l.p===mover).length;
-    const owners=new Map();cellsEaten.forEach(i=>owners.set(i,S.cells[i]));
-    cellsEaten.forEach(i=>{S.hands[S.cells[i]]++;S.cells[i]=null});
-    S.fixed=S.fixed.filter(i=>!cellsEaten.includes(i));
-    [0,1,2].forEach(p=>S.scores[p]=Math.min(S.target,S.scores[p]+gain[p]));
-    S.eating=[];
+    if(S.cells!==cells0)return; // 食べている間に新しいゲームになった
+    const gain=r.gain,loved=r.loved;
+    Object.assign(S,r.state);S.eating=[];
     ls.forEach((l,k)=>{const cs=l.w.map(centerOf),z=cs[cs.length-1],m={x:(cs[0].x+z.x)/2,y:(cs[0].y+z.y)/2};
       setTimeout(()=>{text(m.x,m.y-10,'+1',col(l.p),30);burst(m.x,m.y,{n:28,speed:6})},k*120)});
     const n=ls.length,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height/2};
@@ -499,9 +468,8 @@ function resolve(mover){
     text(mid.x,mid.y-bc.height*.18,loved?'ラブラブ！':n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
     if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
     sfx.yum(n);
-    const winners=[0,1,2].filter(p=>S.scores[p]>=S.target);
-    if(winners.length){const w=winners.length>1&&winners.includes(mover)?[mover]:winners;
-      if(loved){render();setTimeout(()=>{if(alive())finish(w)},reduced?600:1700)}else finish(w);return} // 恋ボーナスで決めたら、演出を見せてから結果を出す
+    if(r.winners.length){
+      if(loved){render();setTimeout(()=>{if(alive())finish(r.winners)},reduced?600:1700)}else finish(r.winners);return} // 恋ボーナスで決めたら、演出を見せてから結果を出す
     render();setTimeout(endTurn,reduced?100:650);
   },reduced?200:720);
 }
@@ -511,13 +479,10 @@ function finish(w){
 }
 function endTurn(){
   if(!alive())return;
-  if(S.moves>=MAXMOVES){const m=Math.max(...S.scores);finish([0,1,2].filter(p=>S.scores[p]===m));return}
-  let skipped=[];
-  for(let k=0;k<3;k++){S.turn=(S.turn+1)%3;if(actions(S.turn).length)break;skipped.push(S.turn)}
-  S.busy=false;
-  if(skipped.length>=3){ // 誰も動けない：その時点の点数で決着
-    const m=Math.max(...S.scores);finish([0,1,2].filter(p=>S.scores[p]===m));return}
-  if(skipped.length){S.passMsg=`${skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
+  const r=R.next(C,S);
+  if(r.over){finish(r.winners);return} // 時間切れ・誰も動けない：その時点の点数で決着
+  S.turn=r.state.turn;S.busy=false;
+  if(r.skipped.length){S.passMsg=`${r.skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
   render();
 }
 function undo(){
@@ -528,7 +493,7 @@ function undo(){
 }
 function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
-  S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;WIN=windows();setRules();
+  S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;setCfg();setRules();
   S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
   S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
@@ -590,99 +555,9 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-// ================= CPU =================
-function simulate(a,p,st=S){
-  const c=st.cells.slice();
-  if(a.t==='place')c[a.to]=p;else if(a.t==='move'){c[a.to]=p;c[a.from]=null}else{const o=c[a.to];c[a.to]=p;c[a.from]=o}
-  return c;
-}
-function threats(c,q,hands,fixed){ // qが次の一手で揃えられる並びの数
-  let t=0;const k=S.need;
-  for(const w of WIN){
-    let own=0,empty=-1,ne=0,g=-1;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;empty=j}else g=j}
-    if(own!==k-1)continue;
-    // 最後の1マスが空いている：置くか、となりから動かして揃う
-    // 恋ボーナスありなら、恋モードのお菓子を動かして揃えられる並びは2点ぶんとして数える
-    const by=ok=>nbrs(ne===1?empty:g).filter(j=>c[j]===q&&!w.includes(j)&&ok(j));
-    if(ne===1){if(S.loveBonus&&by(j=>fixed.has(j)).length)t+=2;else if(hands[q]>0||by(()=>true).length)t++}
-    // 最後の1マスに他人のお菓子：となりに同じモード（ふつう同士・恋モード同士）の自分のお菓子があれば、入れかえて揃う
-    else if(by(j=>fixed.has(j)===fixed.has(g)).length)t+=S.loveBonus&&fixed.has(g)?2:1;
-  }
-  return t;
-}
-function fixedAfter(a,eaten,st=S){const f=new Set(st.fixed);
-  if(a.t==='move'&&f.has(a.from)){f.delete(a.from);f.add(a.to)}
-  if(a.t==='swap'){if(f.has(a.from)&&f.has(a.to))f.delete(a.from);else f.add(a.from)}
-  eaten.forEach(i=>f.delete(i));return f}
-function buildup(c,q){ // 揃いかけ（あと2つ）の並びの数
-  let t=0;const k=S.need;if(k<4)return 0;
-  for(const w of WIN){let own=0,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null)ne++}if(own===k-2&&ne===2)t++}
-  return t;
-}
-function evalAct(a,p,st=S){
-  const c=simulate(a,p,st),ls=lines(c),gain=gainOf(ls,p,loveTo(a,st));
-  let s=0;const hands=st.hands.slice();if(a.t==='place')hands[p]--;
-  if(gain[p])s+=st.scores[p]+gain[p]>=S.target?10000:120*gain[p];
-  for(const q of[0,1,2])if(q!==p)s-=90*gain[q];
-  // 食べられた後の盤で評価
-  const after=c.slice(),eaten=[];ls.forEach(l=>l.w.forEach(i=>{if(after[i]!==null){hands[after[i]]++;after[i]=null;eaten.push(i)}}));
-  const fx=fixedAfter(a,eaten,st);
-  s+=threats(after,p,hands,fx)*14+buildup(after,p)*3-buildup(after,(p+1)%3)*1.5;
-  const nx=(p+1)%3,nx2=(p+2)%3;
-  const reach=S.loveBonus?2:1; // 次の一手で取りうる点
-  s-=threats(after,nx,hands,fx)*(st.scores[nx]+reach>=S.target?60:22);
-  s-=threats(after,nx2,hands,fx)*(st.scores[nx2]+reach>=S.target?40:14);
-  if(a.t==='swap'&&!ls.some(l=>l.p===p))s-=3;
-  if(a.t==='place')s+=2;
-  const n=N(),mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;
-  return s+Math.random()*4;
-}
-// やさしい：目の前だけ見る（揃える・相手の「あと1つ」のマスをふさぐ・自分の「あと1つ」を増やす）
-function openSpots(c,q){const s=new Set(),k=S.need;for(const w of WIN){let own=0,e=-1,ne=0;for(const j of w){if(c[j]===q)own++;else if(c[j]===null){ne++;e=j}}if(own===k-1&&ne===1)s.add(e)}return s}
-function evalEasy(a,p){
-  const c=simulate(a,p),ls=lines(c),gain=gainOf(ls,p,loveTo(a));let s=0;
-  for(const q of[0,1,2])s+=(q===p?100:-100)*gain[q];
-  for(const q of[(p+1)%3,(p+2)%3])if(openSpots(S.cells,q).has(a.to))s+=30;
-  s+=openSpots(c,p).size*10+nbrs(a.to).filter(j=>c[j]===p).length*2;
-  return s+Math.random()*3;
-}
-// つよい：2手読み。よさそうな手を10個にしぼり、それぞれに次の人の一番いい返しを当てて、その後の盤で選ぶ
-function applyOn(st,a,p){
-  const T={cells:simulate(a,p,st),hands:st.hands.slice(),scores:st.scores.slice(),fixed:st.fixed.slice()},lt=loveTo(a,st);
-  if(a.t==='place')T.hands[p]--;
-  if(a.t==='move'){const k=T.fixed.indexOf(a.from);if(k>=0)T.fixed[k]=a.to}
-  if(a.t==='swap'){if(T.fixed.includes(a.from)&&T.fixed.includes(a.to))T.fixed=T.fixed.filter(i=>i!==a.from);else T.fixed.push(a.from)}
-  const ls=lines(T.cells);
-  if(ls.length){const e=new Set(ls.flatMap(l=>l.w)),g=gainOf(ls,p,lt);[0,1,2].forEach(q=>T.scores[q]=Math.min(S.target,T.scores[q]+g[q]));
-    e.forEach(i=>{T.hands[T.cells[i]]++;T.cells[i]=null});T.fixed=T.fixed.filter(i=>!e.has(i))}
-  return T;
-}
-function boardValue(T,p){ // 次の人が打ち終わった盤を、pから見て点数にする
-  const nx=(p+1)%3,nx2=(p+2)%3,fx=new Set(T.fixed);
-  if(T.scores[p]>=S.target)return 1e6;if(T.scores[nx]>=S.target||T.scores[nx2]>=S.target)return -1e6;
-  let v=T.scores[p]*300-(T.scores[nx]+T.scores[nx2])*150;
-  v+=threats(T.cells,p,T.hands,fx)*14+buildup(T.cells,p)*3;
-  v-=threats(T.cells,nx2,T.hands,fx)*(T.scores[nx2]+(S.loveBonus?2:1)>=S.target?60:22); // この次に打つのは nx2
-  v-=threats(T.cells,nx,T.hands,fx)*14;
-  return v;
-}
-function pickHard(p){
-  const cand=actions(p).map(a=>({a,v:evalAct(a,p)})).sort((x,y)=>y.v-x.v).slice(0,10);
-  let best=cand[0].a,bs=-Infinity;
-  for(const {a} of cand){
-    const S1=applyOn(S,a,p);if(S1.scores[p]>=S.target)return a;
-    const nx=(p+1)%3,acts=actions(nx,S1);let b=null,bv=-Infinity;
-    for(const x of acts){const v=evalAct(x,nx,S1);if(v>bv){bv=v;b=x}}
-    const v=boardValue(b?applyOn(S1,b,nx):S1,p)+Math.random()*2;
-    if(v>bs){bs=v;best=a}
-  }
-  return best;
-}
+// ================= CPU（中身は cpu.js） =================
 function cpuTurn(){
-  const p=S.turn,acts=actions(p);if(!acts.length){endTurn();return}
-  let best=acts[0];
-  if(S.level==='hard')best=pickHard(p);
-  else{const f=S.level==='easy'?evalEasy:evalAct;let bs=-Infinity;for(const a of acts){const s=f(a,p);if(s>bs){bs=s;best=a}}}
+  const p=S.turn,best=CPU.choose(C,S,p,S.level);if(!best){endTurn();return}
   if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
     const mv=S.moves;cpuPending=true;
     setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:380)}
@@ -692,19 +567,12 @@ function cpuTurn(){
 // ================= 広告用デモ（?demo） =================
 // 裏でCPU（ふつう）同士の試合を何本も回し、「恋ボーナスで逆転して勝つ」試合を見つけて、画面で1手ずつ再生する
 function demoSim(){ // 1試合を裏で回して、手の記録を返す（時間切れ・同点は null）
-  const h=handSize();let st={cells:Array(N()*N()).fill(null),hands:[h,h,h],scores:[0,0,0],fixed:[]},turn=S.start;const log=[];
-  for(let m=0;m<MAXMOVES;m++){
-    let acts=actions(turn,st),k=0;while(!acts.length&&k<3){turn=(turn+1)%3;acts=actions(turn,st);k++}
-    if(!acts.length)return null;
-    let best=acts[0],bs=-Infinity;for(const a of acts){const v=evalAct(a,turn,st);if(v>bs){bs=v;best=a}}
-    const ls=lines(simulate(best,turn,st)),g=gainOf(ls,turn,loveTo(best,st));
-    log.push({a:best,p:turn,love:g[turn]>ls.filter(l=>l.p===turn).length,before:st.scores.slice()});
-    st=applyOn(st,best,turn);
-    const w=[0,1,2].filter(q=>st.scores[q]>=S.target);
-    if(w.length)return w.length===1||w.includes(turn)?{log,winner:w.length===1?w[0]:turn}:null;
-    turn=(turn+1)%3;
+  let st=R.newState(C,handSize(),S.start);const log=[];
+  while(true){
+    const p=st.turn,a=CPU.choose(C,st,p,'normal'),r=R.step(C,st,a);
+    log.push({a,p,love:r.eat.loved,before:st.scores.slice()});st=r.state;
+    if(r.over)return r.reason==='win'&&r.winners.length===1?{log,winner:r.winners[0]}:null;
   }
-  return null;
 }
 function demoScore(r){ // 勝った人の恋ボーナスが、決勝点で、しかも負けていた所からなら一番いい
   if(!r)return -1;const i=r.log.findIndex(x=>x.love&&x.p===r.winner);if(i<0)return -1;
@@ -752,7 +620,7 @@ function start(data){
   if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
   S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
   if(!S.level)S.level='normal';$('level').value=S.level;if(S.loveBonus===undefined)S.loveBonus=true;$('love').value=S.loveBonus?'on':'off';$('handcount').value=S.handSel||'auto';
-  $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;WIN=windows();setRules();
+  $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;setCfg();setRules();
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
   if(DEMO)demoInit();
