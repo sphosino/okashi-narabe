@@ -4,8 +4,6 @@
 
 **▶ ここで遊べます：https://sphosino.github.io/okashi-narabe/**
 
-前身の花火版「3人で三目並べ」はこちら：https://sphosino.github.io/okashi-narabe/sanmoku3.html
-
 ダウンロードして `index.html` をブラウザで開いても遊べます（インストール不要）。
 
 ## 遊び方
@@ -42,7 +40,6 @@ URLの最後に `?demo` を付けて開くと（例：`index.html?demo`）、CPU
 | ファイル | 中身 |
 |---|---|
 | `index.html` | おかしならべ本体 |
-| `sanmoku3.html` | 前身の「3人で三目並べ」（夜店の花火版）。盤が埋まるまで並びの数を競い、1人1回の「上書き」がある |
 | `tools/skill-test.js` | CPU同士を大量に戦わせて、実力差がどれくらい勝敗に出るかを調べるスクリプト |
 | `tools/love-bonus-test.js` | 恋ボーナスの案をCPU同士で比べるスクリプト |
 
