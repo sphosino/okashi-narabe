@@ -22,7 +22,7 @@ if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).ha
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
 <style>
-/* Layout: strawberry-milk tablecloth — three sweet "name cards" on top, a chocolate-bar board, the hand tray under it. Deliberately single light look. */
+/* Layout: strawberry-milk tablecloth — three sweet "name cards" (each holding its hand) on top, a chocolate-bar board. Deliberately single light look. */
 :root{
   color-scheme:light;
   --bg:#ffe3ec; --dot:#ffd0df; --card:#fffaf6; --ink:#5b2f20; --muted:#a3695b;
@@ -38,15 +38,14 @@ body{margin:0;padding:0 16px;color:var(--ink);font-family:var(--body);background
   background-size:34px 34px;background-position:0 0,17px 17px}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
 .wrap{max-width:540px;margin:0 auto;padding-block:16px 32px;display:flex;flex-direction:column;gap:12px}
-/* スマホでは縦に1列（名前カード → 盤 → お皿 → スタンプ → 設定）。order で並びを決める
-   広い画面では、左に盤と手持ちのお皿、右に名前カード・スタンプ・設定の2列 */
+/* スマホでは縦に1列（名前カード → 盤 → スタンプ → 設定）
+   広い画面では、左に名前カードと盤、右にスタンプ・設定の2列。手持ちは名前カードの中 */
 .main,.side{display:contents}
-header{order:1}.players{order:2}.status{order:3}.stage{order:4}.tray{order:5}.stamps{order:6}.friends{order:7}.controls{order:8}.rules{order:9}.foot{order:10}
 @media (min-width:900px){
   .wrap{max-width:1040px;display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:24px;align-items:start}
   .main,.side{display:flex;flex-direction:column;gap:12px;min-width:0}
   .side{position:sticky;top:12px;padding-top:56px}
-  .wrap .stage{width:min(100%,max(300px,calc(100vh - 230px)))} /* 盤の下のお皿まで画面に収まる大きさ */
+  .wrap .stage{width:min(100%,max(300px,calc(100vh - 290px)))} /* 名前カードと盤が画面に収まる大きさ */
 }
 header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 h1{font-family:var(--display);font-weight:400;font-size:1.9rem;margin:0;letter-spacing:.04em;color:var(--p0);
@@ -66,6 +65,16 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .jar i{width:14px;height:14px;border-radius:50%;background:#f3e2da;box-shadow:inset 0 1px 2px #0001;display:grid;place-items:center}
 .jar i.f{background:var(--c);box-shadow:0 0 0 2px var(--cream),0 0 0 3px var(--c)}
 .jar i.f.new{animation:boing .6s cubic-bezier(.2,1.8,.4,1)}
+.ph{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;min-height:44px;border-radius:10px;padding:3px 5px;background:#f8e9e1;touch-action:none}
+.ph svg{width:30px;height:30px;transition:transform .15s}
+.ph .x{font:400 1.05rem var(--display);color:var(--c);font-variant-numeric:tabular-nums}
+.ph .lbl{font-size:.68rem;font-weight:700;color:var(--muted);width:100%;text-align:center}
+.ph.mine{background:#ffe0ea;box-shadow:0 0 0 2px var(--c);cursor:grab}
+.ph.mine .lbl{color:var(--c)}
+.ph.mine:hover svg{transform:translateY(-3px) rotate(4deg)}
+.ph.sel svg{animation:wiggle .6s infinite}
+.ph.lift svg{opacity:.35}
+.ph:focus-visible{outline:3px solid var(--c);outline-offset:2px}
 .meta{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);font-weight:700;gap:4px;flex-wrap:wrap}
 .chip{font:700 .72rem var(--body);border:2px solid #ecd0c6;background:var(--cream);color:var(--muted);border-radius:999px;padding:2px 8px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:#fff}
@@ -106,17 +115,6 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 @keyframes pulse{50%{transform:scale(.7);opacity:.6}}
 @keyframes boing{0%{transform:scale(.2)}100%{transform:none}}
 
-.tray{background:var(--card);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 3px 0 #f0b9c9;min-height:58px}
-.tray .lbl{font-weight:700;font-size:.8rem;color:var(--muted);flex:none}
-.hand{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 170px;min-width:0} /* 幅に最低限をとり、せまい画面では次の行に回す（文字が1字ずつ折り返さないように） */
-.hand .h{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#f8e9e1;touch-action:none}
-.hand .h.mine{cursor:grab}
-.hand .h.mine:hover .sweet{transform:translateY(-3px) rotate(4deg)}
-.hand .h.sel{background:#ffe0ea;box-shadow:0 0 0 3px var(--c)}
-.hand .h.sel .sweet{animation:wiggle .6s infinite;transform:scale(1.1)}
-.tray .note{font-size:.78rem;color:var(--muted);font-weight:700}
-.swaps{font-size:.75rem;font-weight:700;color:var(--ink);background:#fff1c9;border-radius:999px;padding:3px 9px;flex:none}
-.swaps.used{opacity:.4}
 
 .ghost{position:fixed;left:0;top:0;width:64px;height:64px;pointer-events:none;z-index:40;margin:-32px 0 0 -32px;display:grid;place-items:center}
 .ghost .sweet{width:100%;height:100%;filter:drop-shadow(0 12px 6px #00000040);transform:rotate(-8deg) scale(1.15)}
@@ -146,7 +144,7 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
 .foot{text-align:center;font-size:.75rem;font-weight:700;color:var(--muted);margin:4px 0 0}
 .foot a{color:inherit}
 body.demo .foot{display:none}
-@media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.hand .h{width:38px;height:38px}h1{font-size:1.6rem}}
+@media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.ph svg{width:26px;height:26px}h1{font-size:1.6rem}}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
 .friends{display:flex;justify-content:center}
@@ -209,6 +207,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
 <div class="wrap">
   <div class="main">
   <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
+  <div class="players" id="players"></div>
   <div class="status" id="status" aria-live="polite"></div>
   <div class="stage" id="stage">
     <div class="board" id="board" role="grid" aria-label="盤面"></div>
@@ -216,10 +215,8 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <div class="result lobby" id="lobby" hidden></div>
     <div class="result lobby" id="rooms" hidden></div>
   </div>
-  <div class="tray" id="tray"></div>
   </div>
   <div class="side">
-  <div class="players" id="players"></div>
   <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
   <div class="controls">
@@ -428,6 +425,7 @@ function renderPlayers(){
     box.innerHTML=S.names.map((_,i)=>`<div class="pl" id="pl${i}" style="--c:var(${PC[i]})">
       <div class="top"><button type="button" class="icon" id="ic${i}" aria-label="キャラをえらぶ">${sweet(i,'')}</button><input id="name${i}" maxlength="8" aria-label="プレイヤー${i+1}の名前"></div>
       <div class="jar" id="jar${i}" aria-label="点数"></div>
+      <div class="ph" id="ph${i}"></div>
       <div class="meta"><span id="hd${i}"></span><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
     S.names.forEach((_,i)=>{const el=$('name'+i);el.value=S.names[i];
       el.addEventListener('input',()=>{S.names[i]=el.value||chName(i);renderStatus()});
@@ -439,7 +437,8 @@ function renderPlayers(){
     const jar=$('jar'+i);let h='';
     for(let k=0;k<S.target;k++)h+=`<i class="${k<S.scores[i]?'f':''}${k<S.scores[i]&&k>=prevScores[i]?' new':''}"></i>`;
     jar.innerHTML=h;jar.setAttribute('aria-label',`${S.scores[i]}点 / ${S.target}点`);
-    $('hd'+i).textContent=`手持ち${S.hands[i]} · ${S.wins[i]}勝`;
+    $('hd'+i).textContent=`${S.wins[i]}勝`;
+    renderHand(i);
     const w=$('who'+i);
     if(inRoom()){const s=RV&&RV.seats[i],el=$('name'+i);el.disabled=true;if(el.value!==S.names[i])el.value=S.names[i];
       w.disabled=true;w.removeAttribute('aria-pressed');w.textContent=!s?'…':RV.you===i?'あなた':s.cpu?'CPU':s.empty?'あき':s.online?'人':'るす';w.setAttribute('aria-label',w.textContent);
@@ -483,12 +482,15 @@ function renderBoard(){
   });
   $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
 }
-function renderTray(){
-  const t=$('tray'),p=S.turn,human=!DEMO&&!S.over&&!S.busy&&humanTurn();
-  let hand='';
-  for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+chName(p)+'を選ぶ"':''}>${sweet(p)}</div>`;
-  t.innerHTML=`<span class="lbl">${S.over?'':esc(S.names[p])+'の手持ち'}</span><div class="hand" id="hand">${hand||(S.over?'':'<span class="note">手持ちなし。盤のお菓子を動かそう</span>')}</div>
-    <span class="swaps">入れかえ 何回でもOK</span>`;
+// 名前カードの手持ち。中身が変わったときだけ描きなおす（つまんでいる最中に消えないように）
+const handKey=[];
+function renderHand(i){
+  const ph=$('ph'+i),n=S.hands[i],mine=n>0&&!DEMO&&!S.over&&!S.busy&&S.turn===i&&humanTurn(),sel=mine&&S.sel&&S.sel.kind==='hand'; // 手持ちがあるときだけ、つまめる
+  const k=[n,mine,sel,S.chars[i]].join();if(handKey[i]===k)return;handKey[i]=k;
+  ph.className='ph'+(mine?' mine':'')+(sel?' sel':'');
+  ph.innerHTML=n?`${sweet(i,'')}<span class="x">×${n}</span>${mine?'<span class="lbl">つまんで盤へ</span>':''}`:'<span class="lbl">手持ちなし</span>';
+  if(mine&&n){ph.tabIndex=0;ph.setAttribute('role','button');ph.setAttribute('aria-label',`手持ちの${chName(i)}（${n}個）を選ぶ`)}
+  else{ph.removeAttribute('tabindex');ph.removeAttribute('role');ph.setAttribute('aria-label',`手持ち ${n}個`)}
 }
 function renderResult(){
   const el=$('result');
@@ -507,7 +509,7 @@ const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
-  applyChars();renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();renderRooms();renderStamps();
+  applyChars();renderPlayers();renderStatus();renderBoard();renderResult();renderLobby();renderRooms();renderStamps();
   if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':'おかしならべ';
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
@@ -596,7 +598,7 @@ function swapAnim(a,p,dropRect,src){
   cleanup(dur);
   return dur;
 }
-function trayRect(){const h=document.querySelector('#hand .h');return h?h.getBoundingClientRect():$('tray').getBoundingClientRect()}
+function trayRect(){const ph=$('ph'+S.turn);return ph?(ph.querySelector('svg')||ph).getBoundingClientRect():$('board').getBoundingClientRect()} // 置くお菓子が飛び出す所
 function resolve(mover){
   if(!alive())return;
   const r=R.eat(C,S,mover,S.lastLove),ls=r.lines,cellsEaten=r.eaten,cells0=S.cells;
@@ -657,7 +659,7 @@ let drag=null;
 function canAct(){return !DEMO&&!S.over&&!S.busy&&humanTurn()}
 function selFromEl(el){
   if(!el)return null;
-  const h=el.closest('#hand .h');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
+  const h=el.closest('.ph.mine');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
   const c=el.closest('.cell');if(c){const i=+c.dataset.i;if(S.cells[i]===S.turn)return{kind:'cell',i}}
   return null;
 }
@@ -679,7 +681,7 @@ document.addEventListener('pointermove',e=>{
   if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6){
     drag.moved=true;S.sel=drag.sel;sfx.pick();render();
     const g=document.createElement('div');g.className='ghost';g.innerHTML=sweet(S.turn);document.body.appendChild(g);drag.ghost=g;
-    const src=drag.sel.kind==='cell'?$('pc'+drag.sel.i):document.querySelector('#hand .h');if(src)src.classList.add('lift');
+    const src=drag.sel.kind==='cell'?$('pc'+drag.sel.i):$('ph'+S.turn);if(src)src.classList.add('lift');
   }
   if(drag.moved){drag.ghost.style.transform=`translate(${e.clientX}px,${e.clientY}px)`;
     document.querySelectorAll('.cell.over').forEach(x=>x.classList.remove('over'));
@@ -704,7 +706,7 @@ document.addEventListener('keydown',e=>{
     const c=el.closest&&el.closest('.cell');const i=c?+c.dataset.i:-1;
     if(S.sel&&c&&targetsFor(S.sel).has(i)){e.preventDefault();trySelTarget(i);return}
     const sel=selFromEl(el);if(sel){e.preventDefault();S.sel=sameSel(S.sel,sel)?null:sel;render();
-      const again=sel.kind==='cell'?$('c'+sel.i):document.querySelector('#hand .h');again&&again.focus()}
+      const again=sel.kind==='cell'?$('c'+sel.i):$('ph'+S.turn);again&&again.focus()}
   }
 });
 
