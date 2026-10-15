@@ -171,22 +171,28 @@ body.demo .stamps{display:none}
 /* 友人戦（?room=…）：設定や「1手戻す」は隠し、集まるあいだは盤の上に部屋のカードを出す */
 body.room .controls,body.room .friends{display:none}
 /* あそびかた（チュートリアル）：自分のキャラが吹き出しで話しかけ、光っている所を押して1手ずつ覚える */
-.coach{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:16px;padding:8px 12px;box-shadow:0 3px 0 #f0b9c9;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
-.coach svg{width:54px;height:54px;flex:none}
+.coach{position:absolute;z-index:40;display:flex;align-items:center;gap:6px;background:#fff;border:3px solid var(--gold);border-radius:14px;padding:6px 12px 6px 6px;
+  box-shadow:0 4px 0 #0002,0 14px 30px -10px #5b2f2066;max-width:min(300px,calc(100vw - 24px))}
+.coach svg{width:44px;height:44px;flex:none}
 .coach .say{flex:1;min-width:0;display:grid;gap:6px}
-.coach p{margin:0;font-weight:700;font-size:.9rem;line-height:1.6}
+.coach p{margin:0;font-weight:700;font-size:.88rem;line-height:1.5}
 .coach .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .coach .skip{margin-left:auto;font:700 .75rem var(--body);color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline}
-.coach .step{font-size:.72rem;font-weight:700;color:var(--muted)}
+/* 押す所を指す吹き出し：下向き（または上向き）の矢印。押す所の邪魔をしないよう、さわれない */
+.coach.point{pointer-events:none;animation:tapBounce .9s ease-in-out infinite}
+.coach.point::after{content:"";position:absolute;left:var(--ax,50%);top:100%;transform:translateX(-50%);border:11px solid transparent;border-top-color:var(--gold)}
+.coach.point.below::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--gold)}
+/* 説明と「次へ」：盤のまんなかに出すカード */
+.coach.center{max-width:min(340px,calc(100vw - 32px));padding:10px 14px 10px 8px;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+.coach.center svg{width:56px;height:56px}
+.status .skip{margin-left:8px;font:700 .75rem var(--body);color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline;vertical-align:middle}
 body.tut .controls,body.tut .friends,body.tut .stamps{display:none}
-@media (min-width:900px){body.tut .wrap .stage{width:min(100%,max(300px,calc(100vh - 390px)))}} /* 吹き出しのぶん、盤を小さく */
+
 .ph{position:relative}
 .cell.coachpick,.ph.coachpick{outline:4px solid var(--gold);outline-offset:2px;z-index:3;animation:coachPulse .9s ease-in-out infinite}
 @keyframes coachPulse{50%{transform:scale(1.08)}}
 #board.tutdim .cell:not(.coachpick){filter:brightness(.5) saturate(.6);transition:filter .2s} /* 押す所以外は暗く */
-.tapme{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:var(--gold);color:var(--ink);font:400 .8rem var(--display);padding:2px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:6;box-shadow:0 2px 0 #0003;animation:tapBounce .8s ease-in-out infinite}
-.tapme::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--gold)}
-@keyframes tapBounce{50%{transform:translate(-50%,-7px)}}
+@keyframes tapBounce{50%{translate:0 -5px}}
 details.rulebox{background:var(--card);border-radius:16px;box-shadow:0 3px 0 #f0b9c9}
 details.rulebox summary{cursor:pointer;font-weight:700;font-size:.85rem;color:var(--muted);padding:10px 14px}
 details.rulebox .rules{box-shadow:none;padding-top:0}
@@ -489,7 +495,7 @@ function renderStatus(){
   if(S.passMsg){st.innerHTML=S.passMsg;return}
   if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
   if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
-  if(TUT&&TUT.i>=0){st.innerHTML=`あそびかた<span class="sub">${Math.min(TUT.i+1,TSTEPS.length)} / ${TSTEPS.length}</span>`;return}
+  if(TUT&&TUT.i>=0){st.innerHTML=`あそびかた<span class="sub">${Math.min(TUT.i+1,TSTEPS.length)} / ${TSTEPS.length}</span>${TSTEPS[TUT.i]&&!TSTEPS[TUT.i].final?'<button class="skip" id="tutSkip" type="button">スキップ</button>':''}`;return}
   if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
   else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn],l=leftSec();
@@ -803,15 +809,15 @@ function chooseChar(p,c){
 // はじめて開いたときに「1分で遊び方を覚える？」と聞き、決めておいた盤で1手ずつやってもらう。いつでも「あそびかた」で見直せる
 // 盤は6×6（マス番号は 行×6＋列）。expect は、その手順でできる1手だけ。番は進めない（endTurn で止める）
 const TSTEPS=[
-  {say:'まずは「置く」。光っている手持ちのお菓子を、光っているマスへ運んでみて！',face:'hi',
+  {src:'まずは「置く」。手持ちのお菓子をつまんで…',dst:'ここに置いてみて！',face:'hi',
    cells:{20:1,27:2},hands:[6,6,6],expect:{t:'place',to:14},after:'そう！ 自分の番には「置く・動かす・入れかえ」のどれか1つをするよ',afterFace:'nice'},
-  {say:'同じお菓子が4つ並ぶと、食べられて1点。光っているマスに置いて、4つ並べよう！',face:'again',
+  {src:'同じお菓子が4つ並ぶと、食べられて1点。つまんで…',dst:'ここで4つ並ぶよ！',face:'again',
    cells:{7:0,8:0,9:0,20:1,27:2},hands:[3,6,6],expect:{t:'place',to:10},after:'もぐもぐ… 1点！ 食べたお菓子は手持ちに戻るよ',afterFace:'thx'},
-  {say:'次は「動かす」。盤の自分のお菓子を、となりの空いているマスへ（ななめもOK）',face:'hi',
+  {src:'次は「動かす」。盤の自分のお菓子を…',dst:'となりの空いているマスへ（ななめもOK）',face:'hi',
    cells:{14:0,9:1,27:2},hands:[2,6,6],expect:{t:'move',from:14,to:21},after:'いいね！ 手持ちがなくなっても、動かして並べられるよ',afterFace:'nice'},
-  {say:'「入れかえ」もできるよ。自分のお菓子を、となりの相手のお菓子にぶつけてみて！',face:'again',
+  {src:'「入れかえ」もできるよ。このお菓子を…',dst:'となりの相手のお菓子にぶつけて！',face:'again',
    cells:{14:0,15:1,27:2},hands:[2,6,6],expect:{t:'swap',from:14,to:15},after:'入れかえられた相手のお菓子は、一目ぼれして「恋モード」に（目がハート）。ふつうと恋モードは入れかえられないよ',afterFace:'doki'},
-  {say:'相手に入れかえられて恋モードになった自分のお菓子は、反撃の切り札。動かして揃えると…？',face:'doki',
+  {src:'相手に入れかえられて恋モードになったお菓子は、反撃の切り札。これを…',dst:'ここへ動かして揃えると…？',face:'doki',
    cells:{25:0,26:0,27:0,22:0,15:1,9:2},fixed:[22],hands:[1,6,6],expect:{t:'move',from:22,to:28},after:'恋の力で＋1点！ ふつうの1点と合わせて2点！ 逆転の切り札だよ',afterFace:'nice'},
   {say:'先に3点取った人の勝ち。いっしょに遊ぶ2人も、同じことをしてくるよ。さあ、CPUと勝負しよう！',face:'hi',final:true},
 ];
@@ -820,15 +826,33 @@ const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){retu
 const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
 const tutExpect=()=>TUT&&TUT.phase==='do'?TSTEPS[TUT.i].expect:null;
 const tutSrcOk=sel=>{const x=tutExpect();return x&&(x.t==='place'?sel.kind==='hand':sel.kind==='cell'&&sel.i===x.from)};
-function coach(face,text,buttons,skip){
-  const el=$('coach');el.hidden=false;
-  el.innerHTML=`${stampSweet(0,face)}<div class="say"><p>${text}</p><div class="row">${buttons.map((b,k)=>`<button class="btn${k===0?' primary':''}" type="button" data-k="${k}">${b[0]}</button>`).join('')}${skip?'<button class="skip" type="button" data-skip="1">スキップ</button>':''}</div></div>`;
+let coachKey='';
+function coachCenter(face,text,buttons){ // 盤のまんなかにカード（ボタンつき）
+  const el=$('coach');el.hidden=false;el.className='coach center';coachKey='';
+  el.innerHTML=`${stampSweet(0,face)}<div class="say"><p>${text}</p><div class="row">${buttons.map((b,k)=>`<button class="btn${k===0?' primary':''}" type="button" data-k="${k}">${b[0]}</button>`).join('')}</div></div>`;
   el.querySelectorAll('button[data-k]').forEach(b=>b.addEventListener('click',()=>buttons[+b.dataset.k][1]()));
-  const sk=el.querySelector('[data-skip]');if(sk)sk.addEventListener('click',()=>tutEnd(false));
+  placeCoach();
 }
+function coachPoint(face,text){ // 押す所を、矢印つきの吹き出しで指す
+  const el=$('coach'),k=face+text;el.hidden=false;
+  if(k!==coachKey){coachKey=k;el.className='coach point';el.innerHTML=`${stampSweet(0,face)}<div class="say"><p>${text}</p></div>`}
+  placeCoach();
+}
+function placeCoach(){
+  const el=$('coach');if(el.hidden)return;
+  if(el.classList.contains('center')){const r=$('stage').getBoundingClientRect();
+    el.style.left=Math.max(8,r.left+r.width/2-el.offsetWidth/2)+scrollX+'px';el.style.top=r.top+r.height*.38-el.offsetHeight/2+scrollY+'px';return}
+  const a=document.querySelector('.coachpick');if(!a){el.style.visibility='hidden';return}el.style.visibility='';
+  const r=a.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight,left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2));
+  const above=r.top-h-16>8; // 上に入らなければ下に出す
+  el.classList.toggle('below',!above);el.style.setProperty('--ax',(r.left+r.width/2-left)+'px');
+  el.style.left=left+scrollX+'px';el.style.top=(above?r.top-h-16:r.bottom+16)+scrollY+'px';
+}
+addEventListener('resize',placeCoach);addEventListener('scroll',placeCoach,{passive:true});
+$('status').addEventListener('click',e=>{if(e.target.id==='tutSkip')tutEnd(false)});
 function tutAsk(){ // はじめて開いたとき
   TUT={i:-1,phase:'ask'};
-  coach('hi','はじめまして！ 1分で遊び方を覚えよう',[['あそびかたを見る',()=>tutStart('first')],['すぐ遊ぶ',()=>{tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'ask'});render()}]]);
+  coachCenter('hi','はじめまして！ 1分で遊び方を覚えよう',[['あそびかたを見る',()=>tutStart('first')],['すぐ遊ぶ',()=>{tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'ask'});render()}]]);
 }
 function tutStart(where){
   closePicker();gtag('event','tutorial_start',{where});
@@ -843,12 +867,13 @@ function tutStep(){
     S.hands=st.hands.slice();S.fixed=(st.fixed||[]).slice();S.scores=[0,0,0];prevScores=[0,0,0];
     S.turn=0;S.moves=0;S.over=false;S.winners=[];S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];
   }
-  coach(st.face,st.say,st.final?[['CPUと勝負する！',()=>tutEnd(true)]]:[],!st.final);
-  render();
+  if(st.final)coachCenter(st.face,st.say,[['CPUと勝負する！',()=>tutEnd(true)]]);
+  render(); // 押す所を指す吹き出しは、tutMarks が出す
 }
 function tutDone(){ // 決めた1手ができた
   const st=TSTEPS[TUT.i];TUT.phase='done';
-  setTimeout(()=>{if(!TUT)return;coach(st.afterFace,st.after,[['次へ',()=>{TUT.i++;tutStep()}]],true);render()},reduced?100:700);
+  $('coach').hidden=true;
+  setTimeout(()=>{if(!TUT)return;coachCenter(st.afterFace,st.after,[['次へ',()=>{TUT.i++;tutStep()}]]);render()},reduced?100:900);
   render();
 }
 function tutEnd(done){
@@ -857,11 +882,13 @@ function tutEnd(done){
   if(saved)S.cpu=saved.cpu;
   newGame(false); // 画面下の設定（盤・並べる数・目標など）で、新しい試合
 }
-function tutMarks(){ // 次に押す所を光らせ、「ここ！」の札をつけ、ほかの盤は暗くする
-  document.querySelectorAll('.coachpick').forEach(e=>e.classList.remove('coachpick'));document.querySelectorAll('.tapme').forEach(e=>e.remove());
-  const x=tutExpect(),on=!!x&&!S.busy;$('board').classList.toggle('tutdim',on);if(!on)return;
-  const [e,label]=!S.sel?(x.t==='place'?[$('ph0'),'つまんで']:[$('c'+x.from),'これを']):[$('c'+x.to),'ここ！'];
-  if(e){e.classList.add('coachpick');e.insertAdjacentHTML('beforeend',`<span class="tapme">${label}</span>`)}
+function tutMarks(){ // 次に押す所を光らせ、矢印つきの吹き出しで指し、ほかの盤は暗くする
+  document.querySelectorAll('.coachpick').forEach(e=>e.classList.remove('coachpick'));
+  const x=tutExpect(),on=!!x&&!S.busy;$('board').classList.toggle('tutdim',on);
+  if(!on){const el=$('coach');if(el.classList.contains('point'))el.hidden=true;placeCoach();return}
+  const st=TSTEPS[TUT.i],src=!S.sel,e=src?(x.t==='place'?$('ph0'):$('c'+x.from)):$('c'+x.to);
+  if(e)e.classList.add('coachpick');
+  coachPoint(st.face,src?st.src:st.dst);
 }
 $('howto').addEventListener('click',()=>tutStart('button'));
 
