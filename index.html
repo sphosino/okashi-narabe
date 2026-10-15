@@ -1025,6 +1025,7 @@ async function makeRoom(where){
 // 部屋の一覧（「みんなと遊ぶ」）。開いているあいだ5秒ごとに取りなおす
 let roomsOpen=false,roomsList=null,roomsErr='',roomsTimer=null,roomsHTML='';
 function openRooms(where){
+  if(TUT){if(TUT.phase==='ask'){tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'rooms'})}else tutEnd(false)} // あそびかたは閉じる
   gtag('event','rooms_open',{where});roomsOpen=true;roomsList=null;roomsErr='';render();
   const load=()=>OkashiRoom.list().then(r=>{roomsList=r;roomsErr=''},()=>{roomsErr='一覧を取れませんでした。通信を確かめてください'}).finally(()=>{if(roomsOpen){render();roomsTimer=setTimeout(load,5000)}});
   clearTimeout(roomsTimer);load();
