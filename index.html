@@ -1147,7 +1147,7 @@ function start(data){
     const f=favChar(),rest=[0,1,2,3].filter(c=>c!==f);S.chars=[f,rest[0],rest[1]];
     [1,2].forEach(i=>{if(CH.some(c=>c.n===S.names[i])){S.names[i]=chName(i);const el=$('name'+i);if(el)el.value=S.names[i]}});
     applyChars();render()}
-  if(!DEMO&&!inRoom()){saidHi=true;if(!tutSeen())tutAsk();else[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
+  if(!DEMO&&!inRoom()){saidHi=true;if(!tutSeen()||new URLSearchParams(location.search).has('tut'))tutAsk(); /* ?tut を付けると、見たことがあっても最初の問いかけから（確かめる用） */else[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
   if(DEMO)demoInit();
   else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}
 }
