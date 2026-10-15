@@ -9,7 +9,15 @@ routes = [{ pattern = "api.mataasobo.com", custom_domain = true }]
 name = "ROOM"
 class_name = "Room"
 
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
 # 無料プランで使える SQLite 版の Durable Object
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Lobby"]

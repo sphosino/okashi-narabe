@@ -1,4 +1,5 @@
 // 友人戦の通信。画面のことは何も知らない（ブラウザでは window.OkashiRoom）
+//   list()                    部屋の一覧を返す（人待ち・途中参加できる部屋が先）
 //   create(name)              部屋を作って id を返す
 //   connect(id, onMsg)        つなぐ。切れたらつなぎ直す。onMsg にサーバーからの {t, room, move, msg} を渡す
 //   send(msg)                 {t:'join'|'start'|'act'|'again', …} を送る
@@ -13,6 +14,7 @@ function me(){
   if(!/^[a-z0-9]{16,40}$/.test(p||'')){p=Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>ABC[b%ABC.length]).join('');try{localStorage.setItem('mataasobo-pid',p)}catch(e){}}
   return p;
 }
+async function list(){const r=await fetch(API+'/rooms');if(!r.ok)throw new Error('一覧を取れませんでした');return (await r.json()).rooms}
 async function create(name){
   const r=await fetch(API+'/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pid:me(),name})});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'部屋を作れませんでした');return j.id;
@@ -31,5 +33,5 @@ function connect(id,onMsg){
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&ws&&ws.readyState>1){wait=1000;open()}});
 }
 function send(msg){const s=JSON.stringify(msg);if(ws&&ws.readyState===1)ws.send(s);else queue.push(s)}
-root.OkashiRoom={create,connect,send,me,API};
+root.OkashiRoom={list,create,connect,send,me,API};
 })(this);

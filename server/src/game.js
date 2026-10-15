@@ -1,5 +1,6 @@
 // 友人戦の部屋のルール。通信のことは何も知らない（worker.js から呼ぶ。node test.js でも試せる）
-//   部屋 ：{id, phase, cfg, hand, seats, game, start, state, winners, wins, votes}
+//   部屋 ：{id, phase, cfg, hand, seats, game, start, state, winners, wins, votes, listed}
+//          listed：部屋の一覧に出すか（部屋を作った人が決める。ふだんは出す）
 //          phase は 'lobby'（集まり中）/ 'playing'（対戦中）/ 'over'（決着）
 //          seats は席0〜2。{pid, name} か null（あき席。始めたら CPU が入る）。席0が部屋を作った人
 //          pid は各ブラウザが持つ秘密の番号。ほかの人には見せない
@@ -12,16 +13,15 @@ const cleanName = (s) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim(
 
 export function newRoom(id, pid, name) {
   return { id, phase: 'lobby', cfg: CFG, hand: HAND, seats: [{ pid, name: cleanName(name) }, null, null],
-    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [] };
+    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [], listed: true };
 }
 export const seatOf = (room, pid) => room.seats.findIndex((s) => s && s.pid === pid);
 const humans = (room) => room.seats.filter(Boolean);
 
-// 席に座る（座っていれば名前を変えるだけ）。始まったあとは、あき席には入れない（CPUが座っている）
+// 席に座る（座っていれば名前を変えるだけ）。始まったあとなら、CPU の席を引きつぐ（途中から参加）
 export function join(room, pid, name) {
   const i = seatOf(room, pid);
   if (i >= 0) { room.seats[i].name = cleanName(name); return null; }
-  if (room.phase !== 'lobby') return 'もう始まっています';
   const k = room.seats.indexOf(null);
   if (k < 0) return '満員です';
   room.seats[k] = { pid, name: cleanName(name) };
@@ -61,6 +61,19 @@ export function act(room, pid, game, n, a) {
   return { game, n, p, a: { t: legal.t, from: legal.from ?? null, to: legal.to } };
 }
 
+// 部屋の一覧に出すかどうか（部屋を作った人だけ）
+export function setListed(room, pid, on) {
+  if (seatOf(room, pid) !== 0) return '部屋を作った人だけが決められます';
+  room.listed = !!on;
+  return null;
+}
+
+// 部屋の一覧にのせる情報。pid はのせない
+export function summary(room, online) {
+  return { id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(),
+    seats: room.seats.map((s) => (s ? { name: s.name, online: online.has(s.pid) } : null)) };
+}
+
 // 「この3人でもう一回」。座っている人が全員押したら次の試合（先手は画面の「もう一回」と同じ決め方）
 export function again(room, pid) {
   if (room.phase !== 'over') return '試合が終わってからです';
@@ -81,5 +94,5 @@ export function view(room, pid, online) {
   }));
   const driver = room.seats.findIndex((s) => s && online.has(s.pid));
   return { id: room.id, phase: room.phase, cfg: room.cfg, hand: room.hand, seats, you: seatOf(room, pid),
-    game: room.game, state: room.state, winners: room.winners, wins: room.wins, cpuDriver: driver };
+    game: room.game, state: room.state, winners: room.winners, wins: room.wins, cpuDriver: driver, listed: room.listed !== false };
 }

@@ -14,7 +14,11 @@ assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);
 assert.equal(room.seats[1].name, 'bともだち/bと'); // < > を消して8文字まで
 assert.equal(G.start(room, B), '部屋を作った人だけが始められます');
 assert.equal(G.start(room, A), null);
-assert.equal(G.join(room, X, 'あとから'), 'もう始まっています');
+// 途中から参加：CPU の席を引きつぐ。満員なら入れない
+{ const r2 = G.newRoom('zzzz2345', A, 'a'); G.start(r2, A);
+  assert.equal(G.join(r2, X, 'あとから'), null); assert.equal(G.seatOf(r2, X), 1);
+  assert.equal(G.join(r2, B, 'もうひとり'), null); assert.equal(G.join(r2, 'c'.repeat(16), 'さらに'), '満員です');
+  assert.equal(G.view(r2, A, on).seats[1].cpu, false); }
 let v = G.view(room, B, on);
 assert.equal(v.you, 1); assert.equal(v.seats[2].cpu, true); assert.equal(v.cpuDriver, 0);
 assert.ok(!JSON.stringify(v).includes(A), 'pid を見せない');
