@@ -147,7 +147,7 @@ body.demo .foot{display:none}
 @media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.ph svg{width:26px;height:26px}h1{font-size:1.6rem}}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
-.friends{display:flex;justify-content:center}
+.friends{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
 /* キャラえらび：名前カードのお菓子を押すと出る。部屋のカードにも同じ並び */
 .picker{position:absolute;z-index:30;background:var(--card);border-radius:16px;padding:10px;box-shadow:0 6px 0 #f0b9c9,0 16px 30px -10px #5b2f2066;animation:pop .3s cubic-bezier(.2,1.6,.4,1)}
 .picker p{margin:0 0 6px;font-weight:700;font-size:.8rem;color:var(--muted);text-align:center}
@@ -170,6 +170,21 @@ body.demo .stamps{display:none}
 @keyframes stampOut{to{transform:translateX(-50%) translateY(-16px);opacity:0}}
 /* 友人戦（?room=…）：設定や「1手戻す」は隠し、集まるあいだは盤の上に部屋のカードを出す */
 body.room .controls,body.room .friends{display:none}
+/* あそびかた（チュートリアル）：自分のキャラが吹き出しで話しかけ、光っている所を押して1手ずつ覚える */
+.coach{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:16px;padding:8px 12px;box-shadow:0 3px 0 #f0b9c9;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+.coach svg{width:54px;height:54px;flex:none}
+.coach .say{flex:1;min-width:0;display:grid;gap:6px}
+.coach p{margin:0;font-weight:700;font-size:.9rem;line-height:1.6}
+.coach .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.coach .skip{margin-left:auto;font:700 .75rem var(--body);color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline}
+.coach .step{font-size:.72rem;font-weight:700;color:var(--muted)}
+body.tut .controls,body.tut .friends,body.tut .stamps{display:none}
+@media (min-width:900px){body.tut .wrap .stage{width:min(100%,max(300px,calc(100vh - 390px)))}} /* 吹き出しのぶん、盤を小さく */
+.cell.coachpick,.ph.coachpick{animation:coachGlow 1s ease-in-out infinite}
+@keyframes coachGlow{50%{box-shadow:0 0 0 4px #fff,0 0 0 7px var(--gold)}}
+details.rulebox{background:var(--card);border-radius:16px;box-shadow:0 3px 0 #f0b9c9}
+details.rulebox summary{cursor:pointer;font-weight:700;font-size:.85rem;color:var(--muted);padding:10px 14px}
+details.rulebox .rules{box-shadow:none;padding-top:0}
 .roomonly{display:none;justify-content:center}body.room .roomonly{display:flex}
 .pl .tm{position:absolute;left:12px;right:12px;bottom:4px;height:4px;border-radius:2px;background:var(--c);transform-origin:left center;transform:scaleX(0);pointer-events:none}
 .pl .tm.low{background:#e5484d}
@@ -216,6 +231,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
   <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
   <div class="players" id="players"></div>
   <div class="status" id="status" aria-live="polite"></div>
+  <div class="coach" id="coach" hidden></div>
   <div class="stage" id="stage">
     <div class="board" id="board" role="grid" aria-label="盤面"></div>
     <div class="result" id="result" hidden></div>
@@ -225,7 +241,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
   </div>
   <div class="side">
   <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
-  <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
+  <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button><button class="btn" id="howto" type="button">📖 あそびかた</button></div>
   <div class="roomonly"><button class="btn" id="leave" type="button">部屋を出る</button></div>
   <div class="controls">
     <label for="size">盤
@@ -251,6 +267,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <button class="btn" id="undo" type="button">1手戻す</button>
     <button class="btn primary" id="reset" type="button">新しいゲーム</button>
   </div>
+  <details class="rulebox"><summary>くわしいルール</summary>
   <ol class="rules">
     <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
@@ -259,6 +276,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <li id="ruleLove"><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
+  </details>
   <p class="foot"><a href="/">また遊ぼ</a>・<a href="/privacy.html">プライバシーポリシー</a></p>
   </div>
 </div>
@@ -424,6 +442,7 @@ const N=()=>S.size;
 const isFixed=i=>R.isLove(S,i);
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
+  if(TUT){const x=tutExpect();if(!x||!tutSrcOk(sel))return t;t.set(x.to,x.t);return t} // あそびかた：決めた1手だけ
   if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
   else for(const j of R.geo(C).NB[sel.i]){if(S.cells[j]===null)t.set(j,'move');else if(R.canSwap(S,sel.i,j,p))t.set(j,'swap')}
   return t}
@@ -465,6 +484,7 @@ function renderStatus(){
   if(S.passMsg){st.innerHTML=S.passMsg;return}
   if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
   if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
+  if(TUT&&TUT.i>=0){st.innerHTML=`あそびかた<span class="sub">${Math.min(TUT.i+1,TSTEPS.length)} / ${TSTEPS.length}</span>`;return}
   if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
   else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn],l=leftSec();
@@ -523,7 +543,7 @@ const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
-  applyChars();renderPlayers();renderStatus();renderBoard();renderResult();renderLobby();renderRooms();renderStamps();
+  applyChars();renderPlayers();renderStatus();renderBoard();renderResult();renderLobby();renderRooms();renderStamps();tutMarks();
   if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':'おかしならべ';
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
@@ -648,6 +668,7 @@ function finish(w){
 }
 function endTurn(){
   if(!alive())return;
+  if(TUT){S.busy=false;tutDone();return} // あそびかた：番は進めず、説明の続きへ
   const r=R.next(C,S);
   if(r.over){finish(r.winners);return} // 時間切れ・誰も動けない：その時点の点数で決着
   S.turn=r.state.turn;S.busy=false;
@@ -673,6 +694,7 @@ let drag=null;
 function canAct(){return !DEMO&&!S.over&&!S.busy&&humanTurn()}
 function selFromEl(el){
   if(!el)return null;
+  if(TUT){const x=tutExpect();if(!x)return null;const sel=x.t==='place'?(el.closest('.ph.mine')?{kind:'hand'}:null):(el.closest('.cell')&&+el.closest('.cell').dataset.i===x.from?{kind:'cell',i:x.from}:null);return sel}
   const h=el.closest('.ph.mine');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
   const c=el.closest('.cell');if(c){const i=+c.dataset.i;if(S.cells[i]===S.turn)return{kind:'cell',i}}
   return null;
@@ -771,6 +793,72 @@ function chooseChar(p,c){
   if(!S.cpu[p])saveChar(c);
   gtag('event','char_pick',{c:CH[c].n,mode:'solo'});render();
 }
+
+// ================= あそびかた（チュートリアル） =================
+// はじめて開いたときに「1分で遊び方を覚える？」と聞き、決めておいた盤で1手ずつやってもらう。いつでも「あそびかた」で見直せる
+// 盤は6×6（マス番号は 行×6＋列）。expect は、その手順でできる1手だけ。番は進めない（endTurn で止める）
+const TSTEPS=[
+  {say:'まずは「置く」。光っている手持ちのお菓子を、光っているマスへ運んでみて！',face:'hi',
+   cells:{20:1,27:2},hands:[6,6,6],expect:{t:'place',to:14},after:'そう！ 自分の番には「置く・動かす・入れかえ」のどれか1つをするよ',afterFace:'nice'},
+  {say:'同じお菓子が4つ並ぶと、食べられて1点。光っているマスに置いて、4つ並べよう！',face:'again',
+   cells:{7:0,8:0,9:0,20:1,27:2},hands:[3,6,6],expect:{t:'place',to:10},after:'もぐもぐ… 1点！ 食べたお菓子は手持ちに戻るよ',afterFace:'thx'},
+  {say:'次は「動かす」。盤の自分のお菓子を、となりの空いているマスへ（ななめもOK）',face:'hi',
+   cells:{14:0,9:1,27:2},hands:[2,6,6],expect:{t:'move',from:14,to:21},after:'いいね！ 手持ちがなくなっても、動かして並べられるよ',afterFace:'nice'},
+  {say:'「入れかえ」もできるよ。自分のお菓子を、となりの相手のお菓子にぶつけてみて！',face:'again',
+   cells:{14:0,15:1,27:2},hands:[2,6,6],expect:{t:'swap',from:14,to:15},after:'入れかえられた相手のお菓子は、一目ぼれして「恋モード」に（目がハート）。ふつうと恋モードは入れかえられないよ',afterFace:'doki'},
+  {say:'相手に入れかえられて恋モードになった自分のお菓子は、反撃の切り札。動かして揃えると…？',face:'doki',
+   cells:{25:0,26:0,27:0,22:0,15:1,9:2},fixed:[22],hands:[1,6,6],expect:{t:'move',from:22,to:28},after:'恋の力で＋1点！ ふつうの1点と合わせて2点！ 逆転の切り札だよ',afterFace:'nice'},
+  {say:'先に3点取った人の勝ち。いっしょに遊ぶ2人も、同じことをしてくるよ。さあ、CPUと勝負しよう！',face:'hi',final:true},
+];
+let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
+const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
+const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
+const tutExpect=()=>TUT&&TUT.phase==='do'?TSTEPS[TUT.i].expect:null;
+const tutSrcOk=sel=>{const x=tutExpect();return x&&(x.t==='place'?sel.kind==='hand':sel.kind==='cell'&&sel.i===x.from)};
+function coach(face,text,buttons,skip){
+  const el=$('coach');el.hidden=false;
+  el.innerHTML=`${stampSweet(0,face)}<div class="say"><p>${text}</p><div class="row">${buttons.map((b,k)=>`<button class="btn${k===0?' primary':''}" type="button" data-k="${k}">${b[0]}</button>`).join('')}${skip?'<button class="skip" type="button" data-skip="1">スキップ</button>':''}</div></div>`;
+  el.querySelectorAll('button[data-k]').forEach(b=>b.addEventListener('click',()=>buttons[+b.dataset.k][1]()));
+  const sk=el.querySelector('[data-skip]');if(sk)sk.addEventListener('click',()=>tutEnd(false));
+}
+function tutAsk(){ // はじめて開いたとき
+  TUT={i:-1,phase:'ask'};
+  coach('hi','はじめまして！ 1分で遊び方を覚えよう',[['あそびかたを見る',()=>tutStart('first')],['すぐ遊ぶ',()=>{tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'ask'});render()}]]);
+}
+function tutStart(where){
+  closePicker();gtag('event','tutorial_start',{where});
+  TUT={i:0,phase:'do',saved:{cpu:S.cpu.slice()}};document.body.classList.add('tut');
+  S.size=6;S.need=4;S.target=3;S.loveBonus=true;setCfg();setRules();S.cpu=[false,true,true]; // 手順の中の点は多くて2点なので、勝負はつかない
+  tutStep();
+}
+function tutStep(){
+  const st=TSTEPS[TUT.i];TUT.phase=st.final?'done':'do';
+  if(!st.final){
+    S.cells=Array(36).fill(null);for(const k in st.cells)S.cells[k]=st.cells[k];
+    S.hands=st.hands.slice();S.fixed=(st.fixed||[]).slice();S.scores=[0,0,0];prevScores=[0,0,0];
+    S.turn=0;S.moves=0;S.over=false;S.winners=[];S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];
+  }
+  coach(st.face,st.say,st.final?[['CPUと勝負する！',()=>tutEnd(true)]]:[],!st.final);
+  render();
+}
+function tutDone(){ // 決めた1手ができた
+  const st=TSTEPS[TUT.i];TUT.phase='done';
+  setTimeout(()=>{if(!TUT)return;coach(st.afterFace,st.after,[['次へ',()=>{TUT.i++;tutStep()}]],true);render()},reduced?100:700);
+  render();
+}
+function tutEnd(done){
+  const saved=TUT&&TUT.saved;TUT=null;tutMark();$('coach').hidden=true;document.body.classList.remove('tut');
+  gtag('event',done?'tutorial_done':'tutorial_skip',{at:'step'});
+  if(saved)S.cpu=saved.cpu;
+  newGame(false); // 画面下の設定（盤・並べる数・目標など）で、新しい試合
+}
+function tutMarks(){ // 次に押す所を光らせる
+  document.querySelectorAll('.coachpick').forEach(e=>e.classList.remove('coachpick'));
+  const x=tutExpect();if(!x||S.busy)return;
+  if(!S.sel){const e=x.t==='place'?$('ph0'):$('c'+x.from);if(e)e.classList.add('coachpick')}
+  else{const e=$('c'+x.to);if(e)e.classList.add('coachpick')}
+}
+$('howto').addEventListener('click',()=>tutStart('button'));
 
 // ================= スタンプ =================
 // 自分のスタンプ：自分の席（一人で遊ぶときは人の席）のお菓子が、その表情で出る。友人戦ではサーバーを通してみんなに届く
@@ -1027,7 +1115,7 @@ function start(data){
     const f=favChar(),rest=[0,1,2,3].filter(c=>c!==f);S.chars=[f,rest[0],rest[1]];
     [1,2].forEach(i=>{if(CH.some(c=>c.n===S.names[i])){S.names[i]=chName(i);const el=$('name'+i);if(el)el.value=S.names[i]}});
     applyChars();render()}
-  if(!DEMO&&!inRoom()){saidHi=true;[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
+  if(!DEMO&&!inRoom()){saidHi=true;if(!tutSeen())tutAsk();else[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
   if(DEMO)demoInit();
   else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}
 }
