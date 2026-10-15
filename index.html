@@ -122,8 +122,9 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .controls label{font-size:.82rem;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
-select,button.btn{font:700 .88rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:12px;padding:6px 12px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
-button.btn.primary{background:var(--p0);border-color:var(--p0);color:#fff;box-shadow:0 3px 0 #d94f80}
+select,button.btn,a.btn{font:700 .88rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:12px;padding:6px 12px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
+a.btn{text-decoration:none;display:inline-block;text-align:center}
+button.btn.primary,a.btn.primary{background:var(--p0);border-color:var(--p0);color:#fff;box-shadow:0 3px 0 #d94f80}
 button.btn:active{transform:translateY(2px);box-shadow:none}
 button.btn:disabled{opacity:.4;cursor:default}
 button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
@@ -137,6 +138,24 @@ body.demo .foot{display:none}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
 .friends{display:flex;justify-content:center}
+/* 友人戦（?room=…）：設定や「1手戻す」は隠し、集まるあいだは盤の上に部屋のカードを出す */
+body.room .controls,body.room .friends{display:none}
+.result.lobby{place-items:start center;overflow:auto;padding:10px 0}
+.lobby .card{width:min(320px,88%);gap:12px}
+.lobby h2{font-size:1.2rem}
+.seats{display:grid;gap:6px}
+.seat{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.92rem}
+.seat svg{width:26px;height:26px;flex:none}
+.seat .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat .nm.empty{color:var(--muted);font-weight:500}
+.seat .on{font-size:.72rem;color:var(--muted)}
+.seat .on.y{color:#2f8a22}
+.lobby label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:700;color:var(--muted)}
+.lobby input{min-width:0;border:2px solid #ecc5c9;border-radius:10px;padding:7px 10px;font:700 .95rem var(--body);color:var(--ink);background:#fff}
+.invite{display:flex;gap:6px}
+.invite input{flex:1;font-size:.78rem}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.lobby .note,.result .note{font-size:.8rem;color:var(--muted);text-align:center;margin:0;font-weight:700}
 /* 「友達と遊ぶ（準備中）」：押された数で、友人戦を作るか決める */
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;width:min(360px,calc(100% - 32px));
   background:var(--card);color:var(--ink);border-radius:16px;padding:12px 16px;font-size:.88rem;font-weight:700;line-height:1.6;text-align:center;box-shadow:0 4px 0 #f0b9c9,0 16px 30px -10px #5b2f2066;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
@@ -154,9 +173,10 @@ body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.de
   <div class="stage" id="stage">
     <div class="board" id="board" role="grid" aria-label="盤面"></div>
     <div class="result" id="result" hidden></div>
+    <div class="result lobby" id="lobby" hidden></div>
   </div>
   <div class="tray" id="tray"></div>
-  <div class="friends"><button class="btn" id="friends" type="button">👫 友達と遊ぶ（準備中）</button></div>
+  <div class="friends"><button class="btn" id="friends" type="button">👫 友達と遊ぶ</button></div>
   <div class="controls">
     <label for="size">盤
       <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option><option value="7">7×7</option></select>
@@ -194,6 +214,7 @@ body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.de
 
 <script src="rules.js"></script>
 <script src="cpu.js"></script>
+<script src="room.js"></script>
 <script>
 const PC=['--p0','--p1','--p2'],SWEET=['マカロン','キャンディ','ゼリー'];
 const faceNormal=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
@@ -239,6 +260,12 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const R=Okashi,CPU=OkashiCPU; // ルール（rules.js）とCPU（cpu.js）。この下は画面と操作だけ
 const MAXMOVES=R.MAXMOVES;
 const handSize=()=>R.handFor(S.size,S.need,S.handSel);
+// 友人戦（?room=…）。RV はサーバーから来た部屋の様子（席・盤・自分の席 you など。まだ来ていなければ null）
+const ROOMID=(new URLSearchParams(location.search).get('room')||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const inRoom=()=>!!ROOMID&&!DEMO;
+let RV=null,roomGame=0,roomErr='',moveQ=[];
+// 今この画面で打てる番か：一人で遊ぶときは人の席なら誰でも、友人戦では自分の席の番だけ
+const humanTurn=()=>inRoom()?!!RV&&RV.phase==='playing'&&S.turn===RV.you:!S.cpu[S.turn];
 
 const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
@@ -330,8 +357,11 @@ function renderPlayers(){
     for(let k=0;k<S.target;k++)h+=`<i class="${k<S.scores[i]?'f':''}${k<S.scores[i]&&k>=prevScores[i]?' new':''}"></i>`;
     jar.innerHTML=h;jar.setAttribute('aria-label',`${S.scores[i]}点 / ${S.target}点`);
     $('hd'+i).textContent=`手持ち${S.hands[i]} · ${S.wins[i]}勝`;
-    const w=$('who'+i);w.textContent=S.cpu[i]?'CPU':'人';w.setAttribute('aria-pressed',S.cpu[i]);
-    w.setAttribute('aria-label',`プレイヤー${i+1}を${S.cpu[i]?'人':'CPU'}に切り替え`);
+    const w=$('who'+i);
+    if(inRoom()){const s=RV&&RV.seats[i],el=$('name'+i);el.disabled=true;if(el.value!==S.names[i])el.value=S.names[i];
+      w.disabled=true;w.removeAttribute('aria-pressed');w.textContent=!s?'…':RV.you===i?'あなた':s.cpu?'CPU':s.empty?'あき':s.online?'人':'るす';w.setAttribute('aria-label',w.textContent);
+    }else{w.textContent=S.cpu[i]?'CPU':'人';w.setAttribute('aria-pressed',S.cpu[i]);
+      w.setAttribute('aria-label',`プレイヤー${i+1}を${S.cpu[i]?'人':'CPU'}に切り替え`)}
   });
   prevScores=S.scores.slice();
 }
@@ -341,14 +371,16 @@ function renderStatus(){
   if(S.passMsg){st.innerHTML=S.passMsg;return}
   if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
   if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
+  if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
+  else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn];st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです。打ってくれたら進みます'}</span>`}
   else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
 }
 function renderBoard(){
   const b=$('board');b.style.gridTemplateColumns=b.style.gridTemplateRows=`repeat(${N()},minmax(0,1fr))`;
-  const human=!DEMO&&!S.over&&!S.busy&&!S.cpu[S.turn];
+  const human=!DEMO&&!S.over&&!S.busy&&humanTurn();
   const tg=human?targetsFor(S.sel):new Map();
   b.innerHTML='';
   S.cells.forEach((v,i)=>{
@@ -369,7 +401,7 @@ function renderBoard(){
   $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
 }
 function renderTray(){
-  const t=$('tray'),p=S.turn,human=!DEMO&&!S.over&&!S.busy&&!S.cpu[p];
+  const t=$('tray'),p=S.turn,human=!DEMO&&!S.over&&!S.busy&&humanTurn();
   let hand='';
   for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+SWEET[p]+'を選ぶ"':''}>${sweet(p)}</div>`;
   t.innerHTML=`<span class="lbl">${S.over?'':esc(S.names[p])+'の手持ち'}</span><div class="hand" id="hand">${hand||(S.over?'':'<span class="note">手持ちなし。盤のお菓子を動かそう</span>')}</div>
@@ -382,15 +414,18 @@ function renderResult(){
   const rows=order.map(p=>{const rank=1+S.scores.filter(x=>x>S.scores[p]).length;
     return `<span class="n">${rank}位</span>${sweet(p,'')}<span class="nm" style="color:var(${PC[p]})">${esc(S.names[p])}</span><span class="p" style="color:var(${PC[p]})">${S.scores[p]}点</span>`}).join('');
   const w=S.winners[0];
-  el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div><button class="btn primary" id="again" type="button">もう一回</button><button class="btn" id="friendsR" type="button">友達と遊ぶ（準備中）</button></div>`;
-  el.hidden=false;$('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());newGame(true)});
-  $('friendsR').addEventListener('click',()=>wantFriends('result'));
+  el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div>${inRoom()?roomAgainHTML():'<button class="btn primary" id="again" type="button">もう一回</button><button class="btn" id="friendsR" type="button">友達と遊ぶ</button>'}</div>`;
+  el.hidden=false;
+  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());OkashiRoom.send({t:'again'});b.disabled=true;b.textContent='みんなを待っています…'});return}
+  $('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());newGame(true)});
+  $('friendsR').addEventListener('click',()=>makeRoom('result'));
 }
 const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
-  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();
+  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();
+  if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':'おかしならべ';
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
 }
@@ -398,12 +433,14 @@ setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render
 
 // ================= 手番の処理 =================
 let played=false; // この試合で人が1手でも打ったか（計測用）
-function gameInfo(){return {humans:S.cpu.filter(c=>!c).length,level:S.level,board_size:S.size,hand:S.handSel,love_bonus:S.loveBonus}}
+function gameInfo(){return {mode:inRoom()?'room':'solo',humans:S.cpu.filter(c=>!c).length,level:S.level,board_size:S.size,hand:S.handSel,love_bonus:S.loveBonus}}
 const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
-function doAct(a,fromRect){
+function doAct(a,fromRect,fromServer){
   if(S.over||S.busy)return;
-  const p=S.turn;hist.push(snap());
-  if(!played&&!S.cpu[p]){played=true;gtag('event','game_start',gameInfo())}
+  const p=S.turn;
+  if(inRoom()&&!fromServer)OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:a.t,from:a.from??null,to:a.to}});
+  hist.push(snap());
+  if(!played&&(inRoom()?!fromServer:!S.cpu[p])){played=true;gtag('event','game_start',gameInfo())}
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   const r=R.act(C,S,a,p);Object.assign(S,r.state);
   S.lastLove=r.loveTo;a.victim=r.victim;a.wake=r.wake; // 入れかえアニメで使う
@@ -503,9 +540,10 @@ function resolve(mover){
 }
 function finish(w){
   S.over=true;S.busy=false;S.winners=w;if(w.length===1)S.wins[w[0]]++;
-  if(played){const me=S.cpu.filter(c=>!c).length===1?S.cpu.indexOf(false):-1; // 人が1人のときだけ勝ち負けを記録する
+  if(played){const me=inRoom()?RV.you:S.cpu.filter(c=>!c).length===1?S.cpu.indexOf(false):-1; // 人が1人のとき（友人戦では自分）だけ勝ち負けを記録する
     gtag('event','game_end',{...gameInfo(),moves:S.moves,result:me<0?'local':w.length>1&&w.includes(me)?'draw':w.includes(me)?'win':'lose'})}
   render();sfx.win();setTimeout(()=>rain(w.map(col).concat(['#fff',cssv('--gold'),'#ff9dbd'])),200);
+  roomPump();
 }
 function endTurn(){
   if(!alive())return;
@@ -513,7 +551,7 @@ function endTurn(){
   if(r.over){finish(r.winners);return} // 時間切れ・誰も動けない：その時点の点数で決着
   S.turn=r.state.turn;S.busy=false;
   if(r.skipped.length){S.passMsg=`${r.skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
-  render();
+  render();roomPump();
 }
 function undo(){
   if(S.busy||!hist.some(h=>!S.cpu[h.turn]))return;
@@ -531,7 +569,7 @@ function newGame(advance){
 
 // ================= 操作（ドラッグ / タップ） =================
 let drag=null;
-function canAct(){return !DEMO&&!S.over&&!S.busy&&!S.cpu[S.turn]}
+function canAct(){return !DEMO&&!S.over&&!S.busy&&humanTurn()}
 function selFromEl(el){
   if(!el)return null;
   const h=el.closest('#hand .h');if(h)return S.hands[S.turn]>0?{kind:'hand'}:null;
@@ -587,11 +625,109 @@ document.addEventListener('keydown',e=>{
 
 // ================= CPU（中身は cpu.js） =================
 function cpuTurn(){
+  if(inRoom()){roomCpu();return}
   const p=S.turn,best=CPU.choose(C,S,p,S.level);if(!best){endTurn();return}
   if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
     const mv=S.moves;cpuPending=true;
     setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:380)}
   else doAct(best);
+}
+
+// ================= 友人戦（通信は room.js） =================
+// サーバーの手は moveQ にためて、前の手のアニメーションが終わってから1つずつ再生する
+// 盤がずれたとき（つなぎ直した・自分の手がはねられた など）は、サーバーの盤に合わせる
+function onRoom(m){
+  if(m.t==='open'){roomErr='';return}
+  if(m.t==='close'){if(!RV)roomErr='つながりません。リンクが正しいか、通信を確かめてください';render();return}
+  if(m.t==='err')showToast(m.msg);
+  if(!m.room)return;
+  RV=m.room;if(m.move)moveQ.push(m.move);
+  roomPump(m.t==='err');
+}
+function roomPump(force){
+  if(!inRoom()||!RV||!alive()||S.busy)return; // アニメーション中：終わったら endTurn / finish から呼ばれる
+  while(moveQ.length){
+    const m=moveQ[0];
+    if(m.game!==roomGame||m.n<S.moves){moveQ.shift();continue} // 古い手、または自分がもう動かした手
+    if(m.n===S.moves&&m.p===S.turn&&!S.over){moveQ.shift();roomNames();doAct(m.a,null,true);return}
+    moveQ.length=0;force=true;break;
+  }
+  roomSync(force);
+}
+function roomNames(){
+  S.names=RV.seats.map((s,i)=>s.name||SWEET[i]);S.cpu=RV.seats.map(s=>s.cpu||s.empty);S.wins=RV.wins.slice();
+}
+function roomSync(force){
+  const v=RV;roomNames();
+  if(S.size!==v.cfg.size||S.need!==v.cfg.need||S.target!==v.cfg.target||S.loveBonus!==v.cfg.loveBonus){
+    S.size=v.cfg.size;S.need=v.cfg.need;S.target=v.cfg.target;S.loveBonus=v.cfg.loveBonus;setCfg();setRules();$('board').innerHTML=''}
+  if(!v.state){const h=v.hand;Object.assign(S,{cells:Array(S.size*S.size).fill(null),hands:[h,h,h],scores:[0,0,0],fixed:[],turn:0,moves:0,over:false,winners:[]})}
+  else{
+    const fresh=v.game!==roomGame,behind=!fresh&&v.state.moves<S.moves; // 自分の手がまだサーバーから返ってきていない
+    const differ=fresh||v.state.moves!==S.moves||v.state.turn!==S.turn||(v.phase==='over')!==S.over;
+    if(differ&&(force||!behind)){
+      roomGame=v.game;Object.assign(S,JSON.parse(JSON.stringify(v.state)));
+      S.over=v.phase==='over';S.winners=v.winners.slice();S.sel=null;S.eating=[];S.passMsg='';S.busy=false;
+      if(fresh){played=false;hist=[];prevScores=S.scores.slice()}
+    }
+  }
+  render();
+}
+let cpuSent='',cpuSentAt=0;
+function roomCpu(){
+  if(!RV||RV.phase!=='playing'||RV.cpuDriver!==RV.you||RV.game!==roomGame||RV.state.moves!==S.moves)return;
+  const key=roomGame+':'+S.moves;if(cpuSent===key&&Date.now()-cpuSentAt<5000)return; // 同じ手を何度も送らない
+  const best=CPU.choose(C,S,S.turn,'normal');if(!best)return;
+  cpuSent=key;cpuSentAt=Date.now();
+  OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:best.t,from:best.from??null,to:best.to}});
+}
+function roomAgainHTML(){
+  const n=RV.seats.filter(s=>!s.empty).length,me=RV.seats[RV.you];
+  if(!me)return '<a class="btn primary" href="./">ひとりで遊ぶ</a>';
+  const k=RV.seats.filter(s=>s.voted).length;
+  return (me.voted?`<button class="btn primary" id="again" type="button" disabled>みんなを待っています（${k}/${n}）</button>`
+    :`<button class="btn primary" id="again" type="button">${n>1?`この${n}人でもう一回`:'もう一回'}${k?`（${k}/${n}）`:''}</button>`)
+    +'<a class="btn" href="./">ひとりで遊ぶ</a>';
+}
+const myName=()=>{try{return localStorage.getItem('mataasobo-name')||''}catch(e){return ''}};
+const saveName=v=>{try{localStorage.setItem('mataasobo-name',v)}catch(e){}};
+async function makeRoom(where){
+  gtag('event','room_create',{where});showToast('部屋を作っています…');
+  try{const id=await OkashiRoom.create(myName()||'ゲスト');location.href='?room='+id}
+  catch(e){showToast('部屋を作れませんでした。少し時間をおいて、もう一度ためしてください')}
+}
+let lobbyHTML='';
+function renderLobby(){
+  const el=$('lobby');
+  if(!inRoom()||(RV&&RV.phase!=='lobby')){el.hidden=true;lobbyHTML='';return}
+  let h;
+  if(!RV)h=`<div class="card"><h2>${roomErr?'部屋が見つかりません':'部屋につないでいます…'}</h2>${roomErr?`<p class="note">${esc(roomErr)}</p><a class="btn primary" href="./">ひとりで遊ぶ</a>`:''}</div>`;
+  else{
+    const url=location.origin+location.pathname+'?room='+RV.id,you=RV.you;
+    const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?'あき（始めたらCPU）':esc(s.name)+(i===you?'（あなた）':'')}</span><span class="on${s.online?' y':''}">${s.empty?'':s.online?'● いる':'るす'}</span></div>`).join('');
+    const nameBox=`<label>あなたの名前<input id="myName" maxlength="8" placeholder="なまえ" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`;
+    let body;
+    if(you>=0){
+      const msg='おかしならべで遊ぼ！ '+url;
+      body=nameBox+`<label>このリンクを友達に送ってね<div class="invite"><input id="inv" readonly value="${esc(url)}"><button class="btn" id="copy" type="button">コピー</button></div></label>
+        <div class="btnrow"><a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a>${navigator.share?'<button class="btn" id="share" type="button">ほかの方法で送る</button>':''}</div>`
+        +(you===0?'<button class="btn primary" id="go" type="button">はじめる</button><p class="note">空いた席にはCPUが入ります</p>'
+          :`<p class="note">${esc(RV.seats[0].name)} さんが始めるのを待っています</p>`);
+    }else if(RV.seats.some(s=>s.empty))body=nameBox+'<button class="btn primary" id="join" type="button">参加する</button>';
+    else body='<p class="note">この部屋は満員です</p><a class="btn primary" href="./">ひとりで遊ぶ</a>';
+    h=`<div class="card"><h2>友達と遊ぶ</h2><div class="seats">${seats}</div>${body}</div>`;
+  }
+  if(h===lobbyHTML&&!el.hidden)return; // 同じなら描き直さない（入力中の名前が消えないように）
+  const focused=document.activeElement&&document.activeElement.id==='myName',typed=focused?document.activeElement.value:null;
+  lobbyHTML=h;el.innerHTML=h;el.hidden=false;
+  const nb=$('myName');if(nb){if(focused){nb.value=typed;nb.focus()}
+    nb.addEventListener('input',()=>saveName(nb.value.trim()));
+    nb.addEventListener('change',()=>{const v=nb.value.trim();saveName(v);if(RV&&RV.you>=0&&v)OkashiRoom.send({t:'join',name:v})})}
+  const on=(id,f)=>{const b=$(id);if(b)b.addEventListener('click',f)};
+  on('copy',()=>{const i=$('inv');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>showToast('コピーしました'),()=>{document.execCommand('copy');showToast('コピーしました')})});
+  on('share',()=>navigator.share({title:'おかしならべ',text:'おかしならべで遊ぼ！',url:$('inv').value}).catch(()=>{}));
+  on('go',()=>{gtag('event','room_start',{seated:RV.seats.filter(s=>!s.empty).length});OkashiRoom.send({t:'start'})});
+  on('join',()=>{const v=($('myName').value||'').trim()||'ゲスト';saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v})});
 }
 
 // ================= 広告用デモ（?demo） =================
@@ -642,13 +778,9 @@ function demoInit(){
 // ================= 起動 =================
 $('reset').addEventListener('click',()=>newGame(true));
 $('undo').addEventListener('click',undo);
-$('friends').addEventListener('click',()=>wantFriends('controls'));
+$('friends').addEventListener('click',()=>makeRoom('controls'));
 let toastTimer=null;
-function wantFriends(where){
-  gtag('event','want_friends',{where});
-  const t=$('toast');t.textContent='友達と遊べるモードは、作るかどうか考え中です。押してくれた人が多かったら作ります。ありがとう！';
-  t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},5000);
-}
+function showToast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},4000)}
 function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus}
 ['size','need','target','handcount','love'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
@@ -661,6 +793,7 @@ function start(data){
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
   if(DEMO)demoInit();
+  else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}
 }
 window.claude?.hot?.snapshot?.(()=>({S,hist}));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
