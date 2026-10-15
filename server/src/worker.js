@@ -102,7 +102,7 @@ export class Room extends DurableObject {
 }
 
 // 部屋の一覧。r:<id> に各部屋の summary を持つ
-const LOBBY_SHOW = 30, STALE_MS = 6 * 3600 * 1000, DROP_MS = 2 * 24 * 3600 * 1000;
+const LOBBY_SHOW = 30, DROP_MS = 2 * 24 * 3600 * 1000;
 export class Lobby extends DurableObject {
   async update(info) { await this.ctx.storage.put('r:' + info.id, info); }
   async remove(id) { await this.ctx.storage.delete('r:' + id); }
@@ -111,8 +111,8 @@ export class Lobby extends DurableObject {
     for (const [k, r] of await this.ctx.storage.list({ prefix: 'r:' })) {
       if (now - r.updated > DROP_MS) { old.push(k); continue; }
       const here = r.seats.some((s) => s && s.online);
-      // 集まり中の部屋は誰かいるときだけ、試合中の部屋は6時間以内に動いたものだけ見せる
-      if (!r.listed || (r.phase === 'lobby' ? !here : now - r.updated > STALE_MS && !here)) continue;
+      // 誰かがいる部屋だけ見せる（誰もいない部屋に入っても、戻ってくるまで何も起きないので）
+      if (!r.listed || !here) continue;
       out.push({ ...r, open: r.seats.includes(null), here });
     }
     if (old.length) await this.ctx.storage.delete(old);
