@@ -180,8 +180,13 @@ body.room .controls,body.room .friends{display:none}
 .coach .step{font-size:.72rem;font-weight:700;color:var(--muted)}
 body.tut .controls,body.tut .friends,body.tut .stamps{display:none}
 @media (min-width:900px){body.tut .wrap .stage{width:min(100%,max(300px,calc(100vh - 390px)))}} /* 吹き出しのぶん、盤を小さく */
-.cell.coachpick,.ph.coachpick{animation:coachGlow 1s ease-in-out infinite}
-@keyframes coachGlow{50%{box-shadow:0 0 0 4px #fff,0 0 0 7px var(--gold)}}
+.ph{position:relative}
+.cell.coachpick,.ph.coachpick{outline:4px solid var(--gold);outline-offset:2px;z-index:3;animation:coachPulse .9s ease-in-out infinite}
+@keyframes coachPulse{50%{transform:scale(1.08)}}
+#board.tutdim .cell:not(.coachpick){filter:brightness(.5) saturate(.6);transition:filter .2s} /* 押す所以外は暗く */
+.tapme{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);background:var(--gold);color:var(--ink);font:400 .8rem var(--display);padding:2px 9px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:6;box-shadow:0 2px 0 #0003;animation:tapBounce .8s ease-in-out infinite}
+.tapme::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--gold)}
+@keyframes tapBounce{50%{transform:translate(-50%,-7px)}}
 details.rulebox{background:var(--card);border-radius:16px;box-shadow:0 3px 0 #f0b9c9}
 details.rulebox summary{cursor:pointer;font-weight:700;font-size:.85rem;color:var(--muted);padding:10px 14px}
 details.rulebox .rules{box-shadow:none;padding-top:0}
@@ -852,11 +857,11 @@ function tutEnd(done){
   if(saved)S.cpu=saved.cpu;
   newGame(false); // 画面下の設定（盤・並べる数・目標など）で、新しい試合
 }
-function tutMarks(){ // 次に押す所を光らせる
-  document.querySelectorAll('.coachpick').forEach(e=>e.classList.remove('coachpick'));
-  const x=tutExpect();if(!x||S.busy)return;
-  if(!S.sel){const e=x.t==='place'?$('ph0'):$('c'+x.from);if(e)e.classList.add('coachpick')}
-  else{const e=$('c'+x.to);if(e)e.classList.add('coachpick')}
+function tutMarks(){ // 次に押す所を光らせ、「ここ！」の札をつけ、ほかの盤は暗くする
+  document.querySelectorAll('.coachpick').forEach(e=>e.classList.remove('coachpick'));document.querySelectorAll('.tapme').forEach(e=>e.remove());
+  const x=tutExpect(),on=!!x&&!S.busy;$('board').classList.toggle('tutdim',on);if(!on)return;
+  const [e,label]=!S.sel?(x.t==='place'?[$('ph0'),'つまんで']:[$('c'+x.from),'これを']):[$('c'+x.to),'ここ！'];
+  if(e){e.classList.add('coachpick');e.insertAdjacentHTML('beforeend',`<span class="tapme">${label}</span>`)}
 }
 $('howto').addEventListener('click',()=>tutStart('button'));
 
