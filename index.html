@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}body{margin:0}</style>
 <title>おかしならべ</title>
+<script>
+/* アクセス解析（Google アナリティクス）。mataasobo.com だけで動かし、広告用デモ（?demo）では数えない */
+window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}
+if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).has('demo')){
+  const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-E7FT1414CV';document.head.appendChild(s);
+  gtag('js',new Date());gtag('config','G-E7FT1414CV');
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
 <style>
@@ -116,6 +124,9 @@ button.btn:focus-visible,select:focus-visible{outline:3px solid var(--p1);outlin
 .spacer{flex:1}
 .rules{background:var(--card);border-radius:16px;padding:12px 14px 12px 30px;margin:0;font-size:.82rem;line-height:1.75;color:var(--ink);box-shadow:0 3px 0 #f0b9c9}
 .rules b{color:var(--p0)}
+.foot{text-align:center;font-size:.75rem;font-weight:700;color:var(--muted);margin:4px 0 0}
+.foot a{color:inherit}
+body.demo .foot{display:none}
 @media (max-width:440px){.pl{padding:7px}.pl .icon{width:24px;height:24px}.board{gap:4px;padding:7px}.hand .h{width:38px;height:38px}h1{font-size:1.6rem}}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip{display:none}
@@ -166,6 +177,7 @@ body.demo .controls,body.demo .rules,body.demo .chip{display:none}
     <li id="ruleLove"><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
+  <p class="foot"><a href="/">また遊ぼ</a>・<a href="/privacy.html">プライバシーポリシー</a></p>
 </div>
 
 <script src="rules.js"></script>
@@ -359,7 +371,7 @@ function renderResult(){
     return `<span class="n">${rank}位</span>${sweet(p,'')}<span class="nm" style="color:var(${PC[p]})">${esc(S.names[p])}</span><span class="p" style="color:var(${PC[p]})">${S.scores[p]}点</span>`}).join('');
   const w=S.winners[0];
   el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div><button class="btn primary" id="again" type="button">もう一回</button></div>`;
-  el.hidden=false;$('again').addEventListener('click',()=>newGame(true));
+  el.hidden=false;$('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());newGame(true)});
 }
 const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
@@ -372,10 +384,13 @@ function render(){
 setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render()},1500);
 
 // ================= 手番の処理 =================
+let played=false; // この試合で人が1手でも打ったか（計測用）
+function gameInfo(){return {humans:S.cpu.filter(c=>!c).length,level:S.level,board_size:S.size,hand:S.handSel,love_bonus:S.loveBonus}}
 const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
 function doAct(a,fromRect){
   if(S.over||S.busy)return;
   const p=S.turn;hist.push(snap());
+  if(!played&&!S.cpu[p]){played=true;gtag('event','game_start',gameInfo())}
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   const r=R.act(C,S,a,p);Object.assign(S,r.state);
   S.lastLove=r.loveTo;a.victim=r.victim;a.wake=r.wake; // 入れかえアニメで使う
@@ -475,6 +490,8 @@ function resolve(mover){
 }
 function finish(w){
   S.over=true;S.busy=false;S.winners=w;if(w.length===1)S.wins[w[0]]++;
+  if(played){const me=S.cpu.filter(c=>!c).length===1?S.cpu.indexOf(false):-1; // 人が1人のときだけ勝ち負けを記録する
+    gtag('event','game_end',{...gameInfo(),moves:S.moves,result:me<0?'local':w.length>1&&w.includes(me)?'draw':w.includes(me)?'win':'lose'})}
   render();sfx.win();setTimeout(()=>rain(w.map(col).concat(['#fff',cssv('--gold'),'#ff9dbd'])),200);
 }
 function endTurn(){
@@ -495,7 +512,7 @@ function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
   S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;setCfg();setRules();
   S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
-  S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
+  played=false;S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
 }
 
