@@ -1,7 +1,9 @@
 // 友人戦の部屋のルール。通信のことは何も知らない（worker.js から呼ぶ。node test.js でも試せる）
 //   部屋 ：{id, phase, cfg, hand, seats, game, start, state, winners, wins, votes, listed}
 //          listed：部屋の一覧に出すか（部屋を作った人が決める。ふだんは出す）
+//          limit：1手の持ち時間（秒）。部屋を作った人が集まり中に決める
 //          turnAt：今の番が始まった時刻、seen：{pid: 最後にいなくなった時刻}、left：この試合で退室扱いになった人の pid
+//          miss：{pid: 続けて時間切れになった回数}、auto：{game, n} この手は時間切れで CPU が代わりに打つ
 //          phase は 'lobby'（集まり中）/ 'playing'（対戦中）/ 'over'（決着）
 //          seats は席0〜2。{pid, name, char} か null（あき席。始めたら CPU が入る）。席0が部屋を作った人
 //          char はキャラ（0 マカロン / 1 キャンディ / 2 ゼリー / 3 プリン）。3人でかぶらない
@@ -32,7 +34,7 @@ const cleanName = (s) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim(
 
 export function newRoom(id, pid, name, char) {
   return { id, phase: 'lobby', cfg: CFG, hand: HAND, seats: [{ pid, name: cleanName(name), char: okChar(char) ? char : 0 }, null, null], chars: null,
-    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [], listed: true };
+    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [], listed: true, limit: 60 };
 }
 export const seatOf = (room, pid) => room.seats.findIndex((s) => s && s.pid === pid);
 const humans = (room) => room.seats.filter(Boolean);
@@ -59,8 +61,42 @@ export function setChar(room, pid, char) {
   return null;
 }
 
-export const KICK_MS = 3 * 60 * 1000; // 自分の番で3分るすが続き、ほかの人が待っていたら退室扱い
-export const REPLACE_MS = 5 * 60 * 1000; // 自分の番で5分打たなければ、いてもいなくても、待っている人が CPU に代えられる
+// 持ち時間（秒）。のんびり対局（持ち時間なし）は、通知と「3人組」ができるまで入れない（docs/ideas.md）
+export const LIMITS = [30, 60, 90];
+const AWAY_SEC = 15; // るす（回線が切れている）の人の番は、持ち時間を待たずにこの秒数で CPU が代わりに打つ
+const limitOf = (room) => (room.limit ?? 60);
+export function setLimit(room, pid, sec) {
+  if (seatOf(room, pid) !== 0) return '部屋を作った人だけが決められます';
+  if (room.phase !== 'lobby') return '試合が始まったら変えられません';
+  if (!LIMITS.includes(sec)) return 'その持ち時間は選べません';
+  room.limit = sec;
+  return null;
+}
+// この手は時間切れで CPU が代わりに打つ手か
+const isAuto = (room) => !!room.auto && room.auto.game === room.game && room.auto.n === room.state.moves;
+// 今の番の締め切りの時刻。CPU の番・時間切れ後なら null。ms は1秒の長さ（手元で試すときだけ縮める）
+export function deadline(room, online, ms = 1000) {
+  if (room.phase !== 'playing' || !room.state || !limitOf(room)) return null;
+  const seat = room.seats[room.state.turn];
+  if (!seat || isAuto(room)) return null;
+  const start = room.turnAt || 0, end = start + limitOf(room) * ms;
+  if (online.has(seat.pid)) return end;
+  return Math.min(end, Math.max(start, (room.seen || {})[seat.pid] || 0) + AWAY_SEC * ms);
+}
+// 時間切れ（座っている人のブラウザが、締め切りを過ぎたら知らせてくる）。その1手は CPU が打つ。2回続けたら退室扱い
+export function timeout(room, pid, online, now, ms = 1000) {
+  if (seatOf(room, pid) < 0) return '座っている人だけが知らせられます';
+  const end = deadline(room, online, ms);
+  if (end === null || now < end) return null; // まだ（時計のずれなど）。何もしない
+  const p = room.state.turn, seat = room.seats[p], miss = room.miss ??= {};
+  miss[seat.pid] = (miss[seat.pid] || 0) + 1;
+  if (miss[seat.pid] >= 2) {
+    miss[seat.pid] = 0; (room.left ??= []).push(seat.pid); room.seats[p] = null;
+    return { p, name: seat.name, why: 'timeout2' };
+  }
+  room.auto = { game: room.game, n: room.state.moves };
+  return { p, name: seat.name, why: 'timeout' };
+}
 
 function startGame(room) {
   room.game++;
@@ -79,17 +115,19 @@ export function start(room, pid) {
 
 const same = (x, a) => x.t === a.t && x.to === a.to && (x.from ?? null) === (a.from ?? null);
 // 1手。n は「何手目か」（state.moves）で、ずれていたら受けつけない（二重送信やCPUの手の重なりよけ）
-// 人の席はその人だけ、CPU の席は座っている人なら誰でも（ブラウザが考えた手を送ってくる）打てる
+// 人の席はその人だけ、CPU の席と時間切れの手は座っている人なら誰でも（ブラウザが考えた手を送ってくる）打てる
 export function act(room, pid, game, n, a) {
   if (room.phase !== 'playing' || game !== room.game) return '今は打てません';
   const st = room.state, p = st.turn, seat = room.seats[p];
   if (n !== st.moves) return '盤がずれています';
-  if (seat ? seat.pid !== pid : seatOf(room, pid) < 0) return 'あなたの番ではありません';
+  const byCpu = !seat || (isAuto(room) && seat.pid !== pid);
+  if (byCpu ? seatOf(room, pid) < 0 : seat.pid !== pid) return 'あなたの番ではありません';
   if (!a || typeof a !== 'object') return '手がおかしいです';
   const legal = R.actions(room.cfg, st, p).find((x) => same(x, a));
   if (!legal) return 'その手は打てません';
   const r = R.step(room.cfg, st, legal);
   room.state = r.state; room.turnAt = Date.now();
+  if (!byCpu) (room.miss ??= {})[pid] = 0; // 自分で打てたら、時間切れの回数はリセット
   if (r.over) {
     room.phase = 'over'; room.winners = r.winners;
     if (r.winners.length === 1) room.wins[r.winners[0]]++;
@@ -106,23 +144,12 @@ export function setListed(room, pid, on) {
 
 // 部屋の一覧にのせる情報。pid はのせない
 export function summary(room, online) {
-  return { id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(), chars: charsOf(room),
+  return { id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(), chars: charsOf(room), limit: limitOf(room),
     seats: room.seats.map((s) => (s ? { name: s.name, online: online.has(s.pid) } : null)) };
 }
 
-// いなくなった時刻を覚える（退室扱いまでの3分をここから数える）
+// いなくなった時刻を覚える（るすの人の15秒をここから数える）
 export function markSeen(room, pid, now) { (room.seen ??= {})[pid] = now; }
-// 待っている人（pid）から「まだ？」。番の人が3分以上るすなら、その席を CPU にする（退室扱い）
-export function kickAway(room, pid, online, now, kickMs = KICK_MS) {
-  if (room.phase !== 'playing' || seatOf(room, pid) < 0 || !online.has(pid)) return null;
-  const p = room.state.turn, seat = room.seats[p];
-  if (!seat || online.has(seat.pid)) return null;
-  const since = Math.max(room.turnAt || 0, (room.seen || {})[seat.pid] || 0);
-  if (now - since < kickMs) return null;
-  (room.left ??= []).push(seat.pid);
-  room.seats[p] = null;
-  return { kicked: p, p, name: seat.name, why: 'away' };
-}
 
 // 部屋を出る。席は CPU（集まり中なら、あき席）になる。部屋を作った人が集まり中に出たら、次の人が席0（部屋を作った人）になる
 export function leave(room, pid) {
@@ -136,16 +163,6 @@ export function leave(room, pid) {
     if (k > 0) { room.seats[0] = room.seats[k]; room.seats[k] = null; }
   }
   return { p: i, name, why: 'leave' };
-}
-// 待っている人が「CPUに代わってもらう」。番の人が5分打っていなければ、その席を CPU にする
-export function replace(room, pid, now, ms = REPLACE_MS) {
-  if (room.phase !== 'playing') return '今はできません';
-  const me = seatOf(room, pid), p = room.state.turn, seat = room.seats[p];
-  if (me < 0 || me === p || !seat) return 'できません';
-  if (now - (room.turnAt || 0) < ms) return 'まだ待ってあげてください';
-  (room.left ??= []).push(seat.pid);
-  room.seats[p] = null;
-  return { p, name: seat.name, why: 'replace' };
 }
 
 // 「この3人でもう一回」。座っている人が全員押したら次の試合（先手は画面の「もう一回」と同じ決め方）
@@ -162,7 +179,7 @@ export function again(room, pid) {
 
 const charsOf = (room) => (room.phase === 'lobby' || !room.chars ? fillChars(room.seats) : room.chars);
 // その人に見せる部屋の様子。pid はのせない。cpuDriver：CPU の手を考える係（いちばん若い席の、つながっている人）
-export function view(room, pid, online) {
+export function view(room, pid, online, ms = 1000) {
   const seats = room.seats.map((s, i) => ({
     name: s ? s.name : null, empty: !s, cpu: !s && room.phase !== 'lobby',
     online: !!s && online.has(s.pid), voted: !!s && room.votes.includes(s.pid), host: i === 0,
@@ -171,5 +188,6 @@ export function view(room, pid, online) {
   return { id: room.id, phase: room.phase, cfg: room.cfg, hand: room.hand, seats, you: seatOf(room, pid),
     game: room.game, state: room.state, winners: room.winners, wins: room.wins, cpuDriver: driver, listed: room.listed !== false, chars: charsOf(room),
     kicked: seatOf(room, pid) < 0 && (room.left || []).includes(pid),
-    turnWait: room.phase === 'playing' ? Date.now() - (room.turnAt || 0) : 0, replaceMs: REPLACE_MS };
+    limit: limitOf(room), auto: room.phase === 'playing' && isAuto(room), secMs: ms,
+    turnLeft: (() => { const end = deadline(room, online, ms); return end === null ? null : end - Date.now(); })() };
 }

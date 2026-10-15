@@ -4,8 +4,8 @@
 //   GET  /rooms/<id>/ws?pid=…           WebSocket でつなぐ
 // WebSocket で受けるもの：{t:'join', name, char} / {t:'char', c} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
 // スタンプは保存せず、座っている人から来たものを、ほかの人に {t:'stamp', p, k} で配るだけ
-// {t:'poke'}：ほかの人の番を待っている人が30秒ごとに送る。番の人が3分るすなら退室扱いにして CPU に代える
-// {t:'leave'}：部屋を出る（席は CPU に）。{t:'replace'}：番の人が5分打たないとき、待っている人が CPU に代える
+// {t:'limit', sec}：持ち時間を決める（部屋を作った人、集まり中）。{t:'leave'}：部屋を出る（席は CPU に）
+// {t:'timeout'}：座っている人のブラウザが、締め切りを過ぎたら送る。その1手は CPU、2回続けたら退室扱い
 // ハートビート：ブラウザは20秒ごとに 'ping' を送り、サーバーは起こされずに 'pong' を返す。70秒来ない回線は「るす」とみなす
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
 // 送るもの：{t:'room', room:<その人向けの様子>, move?:<今打たれた手>} / {t:'err', msg}
@@ -49,6 +49,7 @@ export class Room extends DurableObject {
     super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
+  secMs() { return Number(this.env.SEC_MS) || 1000; } // 1秒の長さ。手元で試すときだけ縮める（wrangler dev --var SEC_MS:100）
   async init(id, pid, name, char) {
     if (await this.ctx.storage.get('room')) throw new Error('もうある部屋です');
     await this.save(G.newRoom(id, pid, name, char));
@@ -80,8 +81,7 @@ export class Room extends DurableObject {
   broadcast(room, move, extra) {
     const on = this.online();
     for (const ws of this.sockets()) {
-      const v = G.view(room, this.ctx.getTags(ws)[0], on);
-      if (this.env.REPLACE_MS) v.replaceMs = Number(this.env.REPLACE_MS); // 手元で試すときだけ短くする
+      const v = G.view(room, this.ctx.getTags(ws)[0], on, this.secMs());
       try { ws.send(JSON.stringify({ t: 'room', room: v, move, ...extra })); } catch (e) {}
     }
   }
@@ -102,14 +102,15 @@ export class Room extends DurableObject {
     let msg; try { msg = JSON.parse(data); } catch (e) { return; }
     const room = await this.ctx.storage.get('room');
     if (!room) return;
-    if (msg.t === 'poke') {
-      const res = G.kickAway(room, pid, this.online(), Date.now(), Number(this.env.KICK_MS) || undefined); // KICK_MS は手元で試すときだけ短くする
-      if (res) { await this.save(room); await this.report(room); }
-      this.broadcast(room, undefined, res ? { left: res } : undefined);
+    if (msg.t === 'timeout') {
+      const res = G.timeout(room, pid, this.online(), Date.now(), this.secMs());
+      if (typeof res === 'string' || !res) return;
+      await this.save(room); if (res.why === 'timeout2') await this.report(room);
+      this.broadcast(room, undefined, { left: res });
       return;
     }
-    if (msg.t === 'leave' || msg.t === 'replace') {
-      const res = msg.t === 'leave' ? G.leave(room, pid) : G.replace(room, pid, Date.now(), Number(this.env.REPLACE_MS) || undefined); // REPLACE_MS は手元で試すときだけ短くする
+    if (msg.t === 'leave') {
+      const res = G.leave(room, pid);
       if (typeof res === 'string') { ws.send(JSON.stringify({ t: 'err', msg: res, room: G.view(room, pid, this.online()) })); return; }
       await this.save(room); await this.report(room);
       this.broadcast(room, undefined, { left: res });
@@ -130,6 +131,7 @@ export class Room extends DurableObject {
     else if (msg.t === 'act') res = G.act(room, pid, msg.game, msg.n, msg.a);
     else if (msg.t === 'again') res = G.again(room, pid);
     else if (msg.t === 'listed') res = G.setListed(room, pid, msg.on);
+    else if (msg.t === 'limit') res = G.setLimit(room, pid, msg.sec);
     else return;
     if (typeof res === 'string') { // うまくいかなかった：理由と、今の正しい様子を本人に返す
       ws.send(JSON.stringify({ t: 'err', msg: res, room: G.view(room, pid, this.online()) }));

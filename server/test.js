@@ -18,15 +18,23 @@ const on = new Set([A, B]);
   assert.equal(G.setChar(r, B, 2), '試合が始まったら変えられません');
   const X2 = 'y'.repeat(16); r.seats[2] = null; assert.equal(G.join(r, X2, 'x', 2), null); assert.equal(r.seats[2].char, 0); }
 
-// 退室扱い：番の人が3分るすで、ほかの人が待っているときだけ。戻ってきたら CPU の席に入りなおせる
-{ const r = G.newRoom('kkkk2345', A, 'a'); G.join(r, B, 'b'); G.start(r, A);
-  r.state.turn = 1; r.turnAt = 0; G.markSeen(r, B, 0);
-  assert.equal(G.kickAway(r, A, new Set([A, B]), G.KICK_MS * 2), null, 'いる人は退室にしない');
-  assert.equal(G.kickAway(r, X, new Set([X]), G.KICK_MS * 2), null, '座っていない人は頼めない');
-  assert.equal(G.kickAway(r, A, new Set([A]), G.KICK_MS - 1), null, '3分たっていない');
-  assert.deepEqual(G.kickAway(r, A, new Set([A]), G.KICK_MS), { kicked: 1, p: 1, name: 'b', why: 'away' });
+// 持ち時間：部屋を作った人が集まり中に選ぶ。時間切れの1手は CPU（座っている人が送る）。2回続けたら退室扱い。るすの人は15秒
+{ const r = G.newRoom('tttt2345', A, 'a'); G.join(r, B, 'b');
+  assert.equal(G.setLimit(r, B, 30), '部屋を作った人だけが決められます'); assert.equal(G.setLimit(r, A, 45), 'その持ち時間は選べません');
+  assert.equal(G.setLimit(r, A, 30), null); G.start(r, A); r.state.turn = 1; r.turnAt = 0;
+  const both = new Set([A, B]);
+  assert.equal(G.deadline(r, both), 30000); assert.equal(G.deadline(r, new Set([A])), 15000, 'るすなら15秒');
+  assert.equal(G.timeout(r, A, both, 29999), null, 'まだ');
+  assert.deepEqual(G.timeout(r, A, both, 30000), { p: 1, name: 'b', why: 'timeout' });
+  assert.equal(G.deadline(r, both), null, '時間切れのあとは締め切りなし');
+  const a = CPU.choose(r.cfg, r.state, 1, 'easy');
+  assert.equal(typeof G.act(r, A, r.game, r.state.moves, a), 'object', '時間切れの手は A のブラウザが CPU の手を送れる');
+  r.state.turn = 1; r.turnAt = 0;
+  assert.equal(typeof G.act(r, A, r.game, r.state.moves, CPU.choose(r.cfg, r.state, 1, 'easy')), 'string', '次の手は B だけ');
+  assert.deepEqual(G.timeout(r, A, both, 30000), { p: 1, name: 'b', why: 'timeout2' }, '2回続けて時間切れ');
   assert.equal(r.seats[1], null); assert.equal(G.view(r, B, new Set([A])).kicked, true);
-  assert.equal(G.join(r, B, 'b'), null); assert.equal(G.seatOf(r, B), 1); assert.equal(G.view(r, B, new Set([A, B])).kicked, false); }
+  assert.equal(G.join(r, B, 'b'), null); assert.equal(G.view(r, B, both).kicked, false);
+  assert.equal(G.setLimit(G.newRoom('zzzz9999', A, 'a'), A, 0), 'その持ち時間は選べません'); }
 
 // キャラえらびより前に作った部屋（席にキャラがない）でも、3人のキャラがかぶらない
 { const old = { ...G.newRoom('oooo2345', A, 'a'), phase: 'playing', chars: undefined };
@@ -39,11 +47,6 @@ const on = new Set([A, B]);
   assert.deepEqual(G.leave(r, A), { p: 0, name: 'a', why: 'leave' }); assert.equal(G.seatOf(r, B), 0); assert.equal(G.start(r, B), null);
   assert.equal(G.leave(r, X), '座っていません'); G.join(r, X, 'x');
   assert.deepEqual(G.leave(r, X), { p: 1, name: 'x', why: 'leave' }); assert.equal(r.seats[1], null); }
-// CPUに代わってもらう：番の人が5分打っていないときだけ、待っている人が頼める
-{ const r = G.newRoom('rrrr2345', A, 'a'); G.join(r, B, 'b'); G.start(r, A); r.state.turn = 1; r.turnAt = 0;
-  assert.equal(G.replace(r, B, G.REPLACE_MS), 'できません', '自分の番の人は頼めない');
-  assert.equal(G.replace(r, A, G.REPLACE_MS - 1), 'まだ待ってあげてください');
-  assert.deepEqual(G.replace(r, A, G.REPLACE_MS), { p: 1, name: 'b', why: 'replace' }); assert.equal(r.seats[1], null); }
 
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
