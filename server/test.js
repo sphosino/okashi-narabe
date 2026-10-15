@@ -48,6 +48,14 @@ const on = new Set([A, B]);
   assert.equal(G.leave(r, X), '座っていません'); G.join(r, X, 'x');
   assert.deepEqual(G.leave(r, X), { p: 1, name: 'x', why: 'leave' }); assert.equal(r.seats[1], null); }
 
+// ルール：部屋を作った人が集まり中に選ぶ。始めると、そのルールの盤と手持ち
+{ const r = G.newRoom('uuuu2345', A, 'a'); G.join(r, B, 'b');
+  assert.equal(G.setRule(r, B, 'deep'), '部屋を作った人だけが決められます'); assert.equal(G.setRule(r, A, 'xx'), 'そのルールはありません');
+  assert.equal(G.setRule(r, A, 'deep'), null); assert.equal(G.view(r, A, on).rule, 'deep'); G.start(r, A);
+  assert.equal(r.state.cells.length, 49); assert.deepEqual(r.state.hands, [6, 6, 6]);
+  assert.equal(G.setRule(r, A, 'quick'), '試合が始まったら変えられません');
+  const q = G.newRoom('vvvv2345', A, 'a'); G.setRule(q, A, 'quick'); G.start(q, A); assert.deepEqual(q.state.hands, [7, 7, 7]); assert.equal(q.cfg.target, 2); }
+
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
 assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);

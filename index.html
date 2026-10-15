@@ -132,6 +132,16 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .controls label{font-size:.82rem;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+/* ルールは3つから選ぶ。細かい設定は「自分で決める」を開いたときだけ */
+.presets,.limits{display:flex;gap:6px;flex-wrap:wrap}
+.presets button,.limits button{font:700 .85rem var(--body);color:var(--ink);background:#fff;border:2px solid #f3e0e3;border-radius:999px;padding:4px 14px;cursor:pointer}
+.presets button.on,.limits button.on{border-color:var(--p0);box-shadow:0 0 0 2px var(--p0)}
+.presets button:disabled,.limits button:disabled{cursor:default}
+.plabel{font-size:.82rem;color:var(--muted);font-weight:700}
+.custom{width:100%}
+.custom summary{cursor:pointer;font-size:.8rem;font-weight:700;color:var(--muted)}
+.customrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.rulenote{width:100%;margin:0;font-size:.75rem;color:var(--muted);font-weight:700}
 select,button.btn,a.btn{font:700 .88rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:12px;padding:6px 12px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
 a.btn{text-decoration:none;display:inline-block;text-align:center}
 button.btn.primary,a.btn.primary{background:var(--p0);border-color:var(--p0);color:#fff;box-shadow:0 3px 0 #d94f80}
@@ -199,10 +209,7 @@ details.rulebox .rules{box-shadow:none;padding-top:0}
 .roomonly{display:none;justify-content:center}body.room .roomonly{display:flex}
 .pl .tm{position:absolute;left:12px;right:12px;bottom:4px;height:4px;border-radius:2px;background:var(--c);transform-origin:left center;transform:scaleX(0);pointer-events:none}
 .pl .tm.low{background:#e5484d}
-.limits{display:flex;gap:6px;justify-content:center}
-.limits button{font:700 .85rem var(--body);color:var(--ink);background:#fff;border:2px solid #f3e0e3;border-radius:999px;padding:4px 14px;cursor:pointer}
-.limits button.on{border-color:var(--p0);box-shadow:0 0 0 2px var(--p0)}
-.limits button:disabled{cursor:default}
+.lobby .limits,.lobby .presets{justify-content:center}
 .result.lobby{place-items:start center;bottom:auto;min-height:100%;padding:10px 0} /* 盤より長くなったら、下にのびる（ページごとスクロール） */
 .lobby .card{width:min(320px,88%);gap:12px}
 .lobby h2{font-size:1.2rem}
@@ -255,6 +262,11 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button><button class="btn" id="howto" type="button">📖 あそびかた</button></div>
   <div class="roomonly"><button class="btn" id="leave" type="button">部屋を出る</button></div>
   <div class="controls">
+    <label for="level">CPU
+      <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
+    </label>
+    <span class="plabel">ルール</span><div class="presets" role="group" aria-label="ルール"><button type="button" data-p="normal">ふつう</button><button type="button" data-p="quick">さくっと</button><button type="button" data-p="deep">じっくり</button></div>
+    <details class="custom"><summary>自分で決める</summary><div class="customrow">
     <label for="size">盤
       <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option><option value="7">7×7</option></select>
     </label>
@@ -264,15 +276,13 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <label for="handcount">手持ち
       <select id="handcount"><option value="auto" selected>おまかせ</option><option value="5">5個</option><option value="6">6個</option><option value="7">7個</option><option value="8">8個</option></select>
     </label>
-    <label for="level">CPU
-      <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
-    </label>
     <label for="love">恋ボーナス
       <select id="love"><option value="on" selected>あり</option><option value="off">なし</option></select>
     </label>
     <label for="target">目標
       <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
     </label>
+    </div></details>
     <span class="spacer"></span>
     <button class="btn" id="sound" type="button" aria-pressed="true">音 ON</button>
     <button class="btn" id="undo" type="button">1手戻す</button>
@@ -1026,7 +1036,7 @@ function renderRooms(){
   const tag=r=>r.phase==='lobby'?'<span class="tag wait">人待ち</span>':r.open?'<span class="tag join">途中参加OK</span>':r.phase==='over'?'<span class="tag">終わったところ</span>':'<span class="tag">対戦中</span>';
   const seat=(s,i,r)=>`<span style="color:${CH[(r.chars||[0,1,2])[i]].c}">${s?esc(s.name)+(s.online?'':'（るす）'):'あき'}</span>`;
   const rows=roomsList===null?`<p class="note">${esc(roomsErr||'さがしています…')}</p>`
-    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${esc((r.seats[0]||{name:'だれか'}).name)} の部屋${r.limit?`<small style="color:var(--muted);margin-left:6px">1手${r.limit}秒</small>`:''}</span>${tag(r)}<span class="seatsm">${r.seats.map((s,i)=>seat(s,i,r)).join('<span>・</span>')}</span></a>`).join('')
+    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${esc((r.seats[0]||{name:'だれか'}).name)} の部屋<small style="color:var(--muted);margin-left:6px">${PRESETS[r.rule||'normal']?PRESETS[r.rule||'normal'].n:'ふつう'}${r.limit?`・1手${r.limit}秒`:''}</small></span>${tag(r)}<span class="seatsm">${r.seats.map((s,i)=>seat(s,i,r)).join('<span>・</span>')}</span></a>`).join('')
     :'<p class="note">まだ部屋がありません。作って待ってみよう</p>';
   const h=`<div class="card"><h2>みんなと遊ぶ</h2><button class="btn primary" id="mkroom" type="button">＋ 部屋を作る</button><div class="roomlist">${rows}</div><p class="note">部屋をえらぶと、空いている席に参加できます。リンクを送って友達を呼ぶこともできます</p><button class="btn" id="closeRooms" type="button">とじる</button></div>`;
   if(h===roomsHTML&&!el.hidden)return;
@@ -1052,6 +1062,7 @@ function renderLobby(){
       body=nameBox+`<label>① このリンクを友達に送る<div class="invite"><input id="inv" readonly value="${esc(url)}"><button class="btn" id="copy" type="button">コピー</button></div></label>
         <div class="btnrow"><a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a>${navigator.share?'<button class="btn" id="share" type="button">ほかの方法で送る</button>':''}</div>`
         +'<p class="note">② 友達がリンクを開いて「参加する」を押すと、上に名前が出ます</p>'
+        +`<label>ルール${you===0?'':'（部屋を作った人が決めます）'}<div class="presets">${Object.keys(PRESETS).map(k=>`<button type="button" data-rule="${k}" class="${RV.rule===k?'on':''}"${you===0?'':' disabled'}>${PRESETS[k].n}</button>`).join('')}</div></label>`
         +`<label>1手の持ち時間${you===0?'':'（部屋を作った人が決めます）'}<div class="limits">${[30,60,90].map(t=>`<button type="button" data-sec="${t}" class="${RV.limit===t?'on':''}"${you===0?'':' disabled'}>${t}秒</button>`).join('')}</div></label>`
         +(you===0?`<label class="check"><input type="checkbox" id="listed"${RV.listed?' checked':''}>「みんなと遊ぶ」の一覧に出す（だれでも参加できる）</label>`:'')
         +(you===0?'<button class="btn primary" id="go" type="button">③ はじめる</button><p class="note">そろわなくても始められます。空いた席にはCPUが入ります</p>'
@@ -1074,6 +1085,7 @@ function renderLobby(){
   on('share',()=>navigator.share({title:'おかしならべ',text:'おかしならべで遊ぼ！',url:$('inv').value}).catch(()=>{}));
   on('go',()=>{gtag('event','room_start',{seated:RV.seats.filter(s=>!s.empty).length});OkashiRoom.send({t:'start'})});
   on('watch',()=>{watching=true;render()});
+  el.querySelectorAll('.presets button[data-rule]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'rule',rule:b.dataset.rule})}));
   el.querySelectorAll('.limits button[data-sec]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'limit',sec:+b.dataset.sec})}));
   const ls=$('listed');if(ls)ls.addEventListener('change',()=>OkashiRoom.send({t:'listed',on:ls.checked}));
   on('join',()=>{const v=($('myName').value||'').trim()||'ゲスト';saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v,char:favChar()})});
@@ -1132,6 +1144,18 @@ $('undo').addEventListener('click',undo);
 $('friends').addEventListener('click',()=>openRooms('controls'));
 let toastTimer=null;
 function showToast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},4000)}
+// ルール3つ（サーバーの RULES と同じ中身）。細かい設定がどれとも同じでなければ「自分で決めたルール」
+const PRESETS={normal:{n:'ふつう',size:6,need:4,hand:'auto',target:3,love:'on',note:'6×6・4つ並べ・手持ち6・3点先取'},
+  quick:{n:'さくっと',size:6,need:4,hand:'7',target:2,love:'on',note:'手持ち7・2点先取。短く、はじめての人も勝ちやすい'},
+  deep:{n:'じっくり',size:7,need:4,hand:'auto',target:3,love:'on',note:'7×7・3点先取。上手い人どうしでも決着がつきやすい'}};
+function presetNow(){return Object.keys(PRESETS).find(k=>{const p=PRESETS[k];return +$('size').value===p.size&&+$('need').value===p.need&&$('handcount').value===p.hand&&+$('target').value===p.target&&$('love').value===p.love})||null}
+function markPreset(){const k=presetNow();document.querySelectorAll('.presets [data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===k));
+  let n=document.querySelector('.controls .rulenote');if(!n){n=document.createElement('p');n.className='rulenote';document.querySelector('.presets').after(n)}
+  n.textContent=k?PRESETS[k].note:'自分で決めたルール'}
+document.querySelector('.controls .presets').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=PRESETS[b.dataset.p];
+  $('size').value=p.size;$('need').value=p.need;$('handcount').value=p.hand;$('target').value=p.target;$('love').value=p.love;
+  gtag('event','rule_pick',{rule:b.dataset.p});newGame(false);markPreset()});
+['size','need','handcount','target','love'].forEach(id=>$(id).addEventListener('change',markPreset));
 function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus}
 ['size','need','target','handcount','love'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
@@ -1148,6 +1172,7 @@ function start(data){
     [1,2].forEach(i=>{if(CH.some(c=>c.n===S.names[i])){S.names[i]=chName(i);const el=$('name'+i);if(el)el.value=S.names[i]}});
     applyChars();render()}
   if(!DEMO&&!inRoom()){saidHi=true;if(!tutSeen()||new URLSearchParams(location.search).has('tut'))tutAsk(); /* ?tut を付けると、見たことがあっても最初の問いかけから（確かめる用） */else[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
+  markPreset();
   if(DEMO)demoInit();
   else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}
 }

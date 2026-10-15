@@ -4,7 +4,7 @@
 //   GET  /rooms/<id>/ws?pid=…           WebSocket でつなぐ
 // WebSocket で受けるもの：{t:'join', name, char} / {t:'char', c} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
 // スタンプは保存せず、座っている人から来たものを、ほかの人に {t:'stamp', p, k} で配るだけ
-// {t:'limit', sec}：持ち時間を決める（部屋を作った人、集まり中）。{t:'leave'}：部屋を出る（席は CPU に）
+// {t:'limit', sec} / {t:'rule', rule}：持ち時間・ルールを決める（部屋を作った人、集まり中）。{t:'leave'}：部屋を出る（席は CPU に）
 // {t:'timeout'}：座っている人のブラウザが、締め切りを過ぎたら送る。その1手は CPU、2回続けたら退室扱い
 // ハートビート：ブラウザは20秒ごとに 'ping' を送り、サーバーは起こされずに 'pong' を返す。70秒来ない回線は「るす」とみなす
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
@@ -132,6 +132,7 @@ export class Room extends DurableObject {
     else if (msg.t === 'again') res = G.again(room, pid);
     else if (msg.t === 'listed') res = G.setListed(room, pid, msg.on);
     else if (msg.t === 'limit') res = G.setLimit(room, pid, msg.sec);
+    else if (msg.t === 'rule') res = G.setRule(room, pid, msg.rule);
     else return;
     if (typeof res === 'string') { // うまくいかなかった：理由と、今の正しい様子を本人に返す
       ws.send(JSON.stringify({ t: 'err', msg: res, room: G.view(room, pid, this.online()) }));

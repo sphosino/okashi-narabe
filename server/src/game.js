@@ -1,7 +1,7 @@
 // 友人戦の部屋のルール。通信のことは何も知らない（worker.js から呼ぶ。node test.js でも試せる）
 //   部屋 ：{id, phase, cfg, hand, seats, game, start, state, winners, wins, votes, listed}
 //          listed：部屋の一覧に出すか（部屋を作った人が決める。ふだんは出す）
-//          limit：1手の持ち時間（秒）。部屋を作った人が集まり中に決める
+//          limit：1手の持ち時間（秒）。rule：ルール（normal ふつう / quick さくっと / deep じっくり）。どちらも部屋を作った人が集まり中に決める
 //          turnAt：今の番が始まった時刻、seen：{pid: 最後にいなくなった時刻}、left：この試合で退室扱いになった人の pid
 //          miss：{pid: 続けて時間切れになった回数}、auto：{game, n} この手は時間切れで CPU が代わりに打つ
 //          phase は 'lobby'（集まり中）/ 'playing'（対戦中）/ 'over'（決着）
@@ -14,6 +14,19 @@ import R from '../../rules.js';
 
 export const CFG = { size: 6, need: 4, target: 3, loveBonus: true, maxMoves: R.MAXMOVES };
 const HAND = R.handFor(CFG.size, CFG.need, 'auto');
+// ルールは3つ。画面の「ふつう・さくっと・じっくり」と同じ中身（index.html の PRESETS）
+export const RULES = {
+  normal: { cfg: CFG, hand: HAND },                                                              // 6×6・4つ並べ・手持ち6・3点
+  quick: { cfg: { ...CFG, target: 2 }, hand: 7 },                                                 // 手持ち7・2点：短く、はじめての人も勝ちやすい
+  deep: { cfg: { ...CFG, size: 7 }, hand: R.handFor(7, 4, 'auto') },                              // 7×7：上手い人どうしでも決着がつきやすい
+};
+export function setRule(room, pid, rule) {
+  if (seatOf(room, pid) !== 0) return '部屋を作った人だけが決められます';
+  if (room.phase !== 'lobby') return '試合が始まったら変えられません';
+  if (!RULES[rule]) return 'そのルールはありません';
+  room.rule = rule; room.cfg = RULES[rule].cfg; room.hand = RULES[rule].hand;
+  return null;
+}
 export const CHARS = 4;
 const okChar = (c) => Number.isInteger(c) && c >= 0 && c < CHARS;
 // 席ごとのキャラ。人はその人のキャラ、あき席には使われていないキャラを若い順に
@@ -34,7 +47,7 @@ const cleanName = (s) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim(
 
 export function newRoom(id, pid, name, char) {
   return { id, phase: 'lobby', cfg: CFG, hand: HAND, seats: [{ pid, name: cleanName(name), char: okChar(char) ? char : 0 }, null, null], chars: null,
-    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [], listed: true, limit: 60 };
+    game: 0, start: 0, state: null, winners: [], wins: [0, 0, 0], votes: [], listed: true, limit: 60, rule: 'normal' };
 }
 export const seatOf = (room, pid) => room.seats.findIndex((s) => s && s.pid === pid);
 const humans = (room) => room.seats.filter(Boolean);
@@ -144,7 +157,7 @@ export function setListed(room, pid, on) {
 
 // 部屋の一覧にのせる情報。pid はのせない
 export function summary(room, online) {
-  return { id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(), chars: charsOf(room), limit: limitOf(room),
+  return { id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(), chars: charsOf(room), limit: limitOf(room), rule: room.rule || 'normal',
     seats: room.seats.map((s) => (s ? { name: s.name, online: online.has(s.pid) } : null)) };
 }
 
@@ -188,6 +201,6 @@ export function view(room, pid, online, ms = 1000) {
   return { id: room.id, phase: room.phase, cfg: room.cfg, hand: room.hand, seats, you: seatOf(room, pid),
     game: room.game, state: room.state, winners: room.winners, wins: room.wins, cpuDriver: driver, listed: room.listed !== false, chars: charsOf(room),
     kicked: seatOf(room, pid) < 0 && (room.left || []).includes(pid),
-    limit: limitOf(room), auto: room.phase === 'playing' && isAuto(room), secMs: ms,
+    limit: limitOf(room), rule: room.rule || 'normal', auto: room.phase === 'playing' && isAuto(room), secMs: ms,
     turnLeft: (() => { const end = deadline(room, online, ms); return end === null ? null : end - Date.now(); })() };
 }
