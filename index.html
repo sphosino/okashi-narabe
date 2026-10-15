@@ -191,7 +191,7 @@ body.tut .controls,body.tut .friends,body.tut .stamps{display:none}
 .ph{position:relative}
 .cell.coachpick,.ph.coachpick{outline:4px solid var(--gold);outline-offset:2px;z-index:3;animation:coachPulse .9s ease-in-out infinite}
 @keyframes coachPulse{50%{transform:scale(1.08)}}
-#board.tutdim .cell:not(.coachpick){filter:saturate(.55);transition:filter .2s} /* 押す所以外は、色を少しだけ落ち着かせる（暗くはしない） */
+#board.tutdim .cell:not(.coachpick){filter:saturate(.75);transition:filter .2s} /* 押す所以外は、色を少しだけ落ち着かせる（暗くはしない） */
 @keyframes tapBounce{50%{translate:0 -5px}}
 details.rulebox{background:var(--card);border-radius:16px;box-shadow:0 3px 0 #f0b9c9}
 details.rulebox summary{cursor:pointer;font-weight:700;font-size:.85rem;color:var(--muted);padding:10px 14px}
