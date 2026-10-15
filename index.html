@@ -6,9 +6,15 @@
 <style>[hidden]{display:none!important}img{max-width:100%}body{margin:0}</style>
 <title>おかしならべ</title>
 <script>
-/* アクセス解析（Google アナリティクス）。mataasobo.com だけで動かし、広告用デモ（?demo）では数えない */
+/* アクセス解析（Google アナリティクス）。mataasobo.com だけで動かし、広告用デモ（?demo）と自分の閲覧では数えない
+   自分の閲覧：一度 ?me を付けて開くと、このブラウザは数えなくなる（?me=off で戻す。mataasobo.com のどのページでも同じ） */
 window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}
-if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).has('demo')){
+let notMe=true;
+try{const q=new URLSearchParams(location.search);
+  if(q.has('me')){const off=q.get('me')==='off';if(off)localStorage.removeItem('mataasobo-me');else localStorage.setItem('mataasobo-me','1');
+    alert(off?'このブラウザも数えるように戻しました':'このブラウザでの閲覧は、もう数えません')}
+  notMe=!localStorage.getItem('mataasobo-me')}catch(e){}
+if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).has('demo')&&notMe){
   const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-E7FT1414CV';document.head.appendChild(s);
   gtag('js',new Date());gtag('config','G-E7FT1414CV');
 }
