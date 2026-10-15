@@ -28,6 +28,12 @@ const on = new Set([A, B]);
   assert.equal(r.seats[1], null); assert.equal(G.view(r, B, new Set([A])).kicked, true);
   assert.equal(G.join(r, B, 'b'), null); assert.equal(G.seatOf(r, B), 1); assert.equal(G.view(r, B, new Set([A, B])).kicked, false); }
 
+// キャラえらびより前に作った部屋（席にキャラがない）でも、3人のキャラがかぶらない
+{ const old = { ...G.newRoom('oooo2345', A, 'a'), phase: 'playing', chars: undefined };
+  old.seats = [{ pid: A, name: 'a' }, { pid: B, name: 'b' }, { pid: X, name: 'x' }];
+  assert.deepEqual(G.view(old, A, on).chars, [0, 1, 2]);
+  old.seats[1].char = 3; assert.deepEqual(G.view(old, A, on).chars, [0, 3, 1]); }
+
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
 assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);

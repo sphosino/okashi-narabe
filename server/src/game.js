@@ -15,9 +15,12 @@ const HAND = R.handFor(CFG.size, CFG.need, 'auto');
 export const CHARS = 4;
 const okChar = (c) => Number.isInteger(c) && c >= 0 && c < CHARS;
 // 席ごとのキャラ。人はその人のキャラ、あき席には使われていないキャラを若い順に
+// キャラのない席（キャラえらびより前に作った部屋）や、かぶっている席にも、空いているキャラを入れる
 export function fillChars(seats) {
-  const used = new Set(seats.filter(Boolean).map((s) => s.char));
-  return seats.map((s) => { if (s) return s.char; let c = 0; while (used.has(c)) c++; used.add(c); return c; });
+  const used = new Set(), out = [];
+  seats.forEach((s, i) => { if (s && okChar(s.char) && !used.has(s.char)) { out[i] = s.char; used.add(s.char); } });
+  seats.forEach((s, i) => { if (out[i] === undefined) { let c = 0; while (used.has(c)) c++; used.add(c); out[i] = c; } });
+  return out;
 }
 // 好きなキャラ（ほかの人が使っていれば、空いているキャラ）
 function pickChar(room, want, except) {
@@ -132,7 +135,7 @@ export function again(room, pid) {
   return null;
 }
 
-const charsOf = (room) => (room.phase === 'lobby' || !room.chars ? fillChars(room.seats.map((s) => s && { char: s.char ?? 0 })) : room.chars);
+const charsOf = (room) => (room.phase === 'lobby' || !room.chars ? fillChars(room.seats) : room.chars);
 // その人に見せる部屋の様子。pid はのせない。cpuDriver：CPU の手を考える係（いちばん若い席の、つながっている人）
 export function view(room, pid, online) {
   const seats = room.seats.map((s, i) => ({
