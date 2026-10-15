@@ -2,7 +2,7 @@
 
 3人で遊ぶ、お菓子の並べゲームです。
 
-**▶ ここで遊べます：https://sphosino.github.io/okashi-narabe/**
+**▶ ここで遊べます：https://mataasobo.com/okashi-narabe/**
 
 ダウンロードして `index.html` をブラウザで開いても遊べます（インストール不要）。`index.html`・`rules.js`・`cpu.js` は同じフォルダに置いてください。
 
