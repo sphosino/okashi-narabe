@@ -24,7 +24,7 @@ const on = new Set([A, B]);
   assert.equal(G.kickAway(r, A, new Set([A, B]), G.KICK_MS * 2), null, 'いる人は退室にしない');
   assert.equal(G.kickAway(r, X, new Set([X]), G.KICK_MS * 2), null, '座っていない人は頼めない');
   assert.equal(G.kickAway(r, A, new Set([A]), G.KICK_MS - 1), null, '3分たっていない');
-  assert.deepEqual(G.kickAway(r, A, new Set([A]), G.KICK_MS), { kicked: 1, name: 'b' });
+  assert.deepEqual(G.kickAway(r, A, new Set([A]), G.KICK_MS), { kicked: 1, p: 1, name: 'b', why: 'away' });
   assert.equal(r.seats[1], null); assert.equal(G.view(r, B, new Set([A])).kicked, true);
   assert.equal(G.join(r, B, 'b'), null); assert.equal(G.seatOf(r, B), 1); assert.equal(G.view(r, B, new Set([A, B])).kicked, false); }
 
@@ -33,6 +33,17 @@ const on = new Set([A, B]);
   old.seats = [{ pid: A, name: 'a' }, { pid: B, name: 'b' }, { pid: X, name: 'x' }];
   assert.deepEqual(G.view(old, A, on).chars, [0, 1, 2]);
   old.seats[1].char = 3; assert.deepEqual(G.view(old, A, on).chars, [0, 3, 1]); }
+
+// 部屋を出る：集まり中に部屋を作った人が出たら、次の人が部屋を作った人になる。試合中なら席は CPU に
+{ const r = G.newRoom('llll2345', A, 'a'); G.join(r, B, 'b');
+  assert.deepEqual(G.leave(r, A), { p: 0, name: 'a', why: 'leave' }); assert.equal(G.seatOf(r, B), 0); assert.equal(G.start(r, B), null);
+  assert.equal(G.leave(r, X), '座っていません'); G.join(r, X, 'x');
+  assert.deepEqual(G.leave(r, X), { p: 1, name: 'x', why: 'leave' }); assert.equal(r.seats[1], null); }
+// CPUに代わってもらう：番の人が5分打っていないときだけ、待っている人が頼める
+{ const r = G.newRoom('rrrr2345', A, 'a'); G.join(r, B, 'b'); G.start(r, A); r.state.turn = 1; r.turnAt = 0;
+  assert.equal(G.replace(r, B, G.REPLACE_MS), 'できません', '自分の番の人は頼めない');
+  assert.equal(G.replace(r, A, G.REPLACE_MS - 1), 'まだ待ってあげてください');
+  assert.deepEqual(G.replace(r, A, G.REPLACE_MS), { p: 1, name: 'b', why: 'replace' }); assert.equal(r.seats[1], null); }
 
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');

@@ -170,6 +170,8 @@ body.demo .stamps{display:none}
 @keyframes stampOut{to{transform:translateX(-50%) translateY(-16px);opacity:0}}
 /* 友人戦（?room=…）：設定や「1手戻す」は隠し、集まるあいだは盤の上に部屋のカードを出す */
 body.room .controls,body.room .friends{display:none}
+.roomonly{display:none;justify-content:center}body.room .roomonly{display:flex}
+.status .btn{margin-left:6px;font-size:.78rem;padding:3px 10px;vertical-align:middle}
 .result.lobby{place-items:start center;bottom:auto;min-height:100%;padding:10px 0} /* 盤より長くなったら、下にのびる（ページごとスクロール） */
 .lobby .card{width:min(320px,88%);gap:12px}
 .lobby h2{font-size:1.2rem}
@@ -219,6 +221,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
   <div class="side">
   <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
+  <div class="roomonly"><button class="btn" id="leave" type="button">部屋を出る</button></div>
   <div class="controls">
     <label for="size">盤
       <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option><option value="7">7×7</option></select>
@@ -342,7 +345,8 @@ const handSize=()=>R.handFor(S.size,S.need,S.handSel);
 // 友人戦（?room=…）。RV はサーバーから来た部屋の様子（席・盤・自分の席 you など。まだ来ていなければ null）
 const ROOMID=(new URLSearchParams(location.search).get('room')||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 const inRoom=()=>!!ROOMID&&!DEMO;
-let RV=null,roomGame=0,roomErr='',moveQ=[];
+let RV=null,rvAt=0,roomGame=0,roomErr='',moveQ=[];
+const waited=()=>RV?RV.turnWait+(Date.now()-rvAt):0; // 今の番が始まってからの時間
 // 今この画面で打てる番か：一人で遊ぶときは人の席なら誰でも、友人戦では自分の席の番だけ
 const humanTurn=()=>inRoom()?!!RV&&RV.phase==='playing'&&S.turn===RV.you:!S.cpu[S.turn];
 
@@ -455,7 +459,8 @@ function renderStatus(){
   if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
   if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
-  else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn];st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです。3分戻らなければ、CPUが代わりに打ちます'}</span>`}
+  else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn],long=RV.you>=0&&RV.phase==='playing'&&waited()>=RV.replaceMs;
+    st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです。3分戻らなければ、CPUが代わりに打ちます'}</span>${long?'<button class="btn" id="replaceBtn" type="button">CPUに代わってもらう</button>':''}`}
   else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
@@ -798,8 +803,9 @@ function onRoom(m){
   if(m.t==='stamp'){if(alive())showStamp(m.p,m.k);return}
   if(m.t==='err')showToast(m.msg);
   if(!m.room)return;
-  if(m.left)showToast(`${m.left.name} さんが退室したので、CPUが代わりに打ちます`);
-  RV=m.room;if(m.move)moveQ.push(m.move);
+  if(m.left&&m.room.you!==m.left.p)showToast(m.left.why==='leave'?(m.room.phase==='lobby'?`${m.left.name} さんが部屋を出ました`:`${m.left.name} さんが部屋を出たので、CPUが代わりに打ちます`)
+    :m.left.why==='replace'?`${m.left.name} さんの代わりに、CPUが打ちます`:`${m.left.name} さんが退室したので、CPUが代わりに打ちます`);
+  RV=m.room;rvAt=Date.now();if(m.move)moveQ.push(m.move);
   roomPump(m.t==='err');
 }
 function roomPump(force){
@@ -834,10 +840,21 @@ function roomSync(force){
   render();
 }
 let cpuSent='',cpuSentAt=0;
+// 5分たったら「CPUに代わってもらう」を出すため、待っているあいだは10秒ごとに状態の文字を描きなおす
+setInterval(()=>{if(inRoom()&&RV&&RV.phase==='playing'&&RV.you>=0&&S.turn!==RV.you&&!S.busy)renderStatus()},10000);
+$('status').addEventListener('click',e=>{if(e.target.id==='replaceBtn'){e.target.disabled=true;gtag('event','room_replace');OkashiRoom.send({t:'replace'})}});
+// 部屋を出る：1回目は確かめるだけ、3秒以内にもう一度押すと出る
+let leaveArmed=0;
+$('leave').addEventListener('click',()=>{
+  const b=$('leave');
+  if(!RV||RV.you<0){location.href='./';return}
+  if(Date.now()-leaveArmed>3000){leaveArmed=Date.now();b.textContent=RV.phase==='playing'?'本当に出る？（席はCPUに）もう一度押す':'本当に出る？もう一度押す';setTimeout(()=>{if(Date.now()-leaveArmed>=3000)b.textContent='部屋を出る'},3100);return}
+  gtag('event','room_leave',{phase:RV.phase});OkashiRoom.send({t:'leave'});setTimeout(()=>{location.href='./'},400);
+});
 // ほかの人の番を待っているあいだ、30秒ごとにサーバーに「まだ？」と聞く（番の人が3分るすなら、サーバーが CPU に代える）
 setInterval(()=>{if(inRoom()&&RV&&RV.phase==='playing'&&RV.you>=0&&S.turn!==RV.you&&RV.seats[S.turn]&&!RV.seats[S.turn].cpu&&!RV.seats[S.turn].online)OkashiRoom.send({t:'poke'})},30000);
-function roomCpu(){
-  if(!RV||RV.phase!=='playing'||RV.cpuDriver!==RV.you||RV.game!==roomGame||RV.state.moves!==S.moves)return;
+function roomCpu(){ // CPU の手は、座っている人のうち係の人（cpuDriver）だけが考えて送る
+  if(!RV||RV.phase!=='playing'||RV.you<0||RV.cpuDriver!==RV.you||RV.game!==roomGame||RV.state.moves!==S.moves)return;
   const key=roomGame+':'+S.moves;if(cpuSent===key&&Date.now()-cpuSentAt<5000)return; // 同じ手を何度も送らない
   const best=CPU.choose(C,S,S.turn,'normal');if(!best)return;
   cpuSent=key;cpuSentAt=Date.now();
@@ -903,7 +920,7 @@ function renderLobby(){
           :`<p class="note">③ ${esc(RV.seats[0].name)} さんが「はじめる」を押すのを待っています</p>`);
     }else if(RV.seats.some(s=>s.empty))body=lobby
       ?`<p class="note">${esc(RV.seats[0].name)} さんの部屋に招待されました</p>`+nameBox+'<button class="btn primary" id="join" type="button">参加する</button>'
-      :`<p class="note">${RV.kicked?'長いあいだるすだったので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます':'もう試合が始まっています。CPUの席と交代して、途中から参加できます'}</p>`+nameBox
+      :`<p class="note">${RV.kicked?'しばらく打たなかったので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます':'もう試合が始まっています。CPUの席と交代して、途中から参加できます'}</p>`+nameBox
         +'<div class="btnrow"><button class="btn primary" id="join" type="button">CPUと交代して参加する</button><button class="btn" id="watch" type="button">見るだけ</button></div>';
     else body=`<p class="note">この部屋は満員です${lobby?'':'。試合を見ることはできます'}</p><div class="btnrow">${lobby?'':'<button class="btn primary" id="watch" type="button">見るだけ</button>'}<a class="btn" href="./">ひとりで遊ぶ</a></div>`;
     h=`<div class="card"><h2>${lobby?'友達と遊ぶ':'試合中です'}</h2><div class="seats">${seats}</div>${body}</div>`;

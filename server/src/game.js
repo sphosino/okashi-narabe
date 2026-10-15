@@ -60,6 +60,7 @@ export function setChar(room, pid, char) {
 }
 
 export const KICK_MS = 3 * 60 * 1000; // 自分の番で3分るすが続き、ほかの人が待っていたら退室扱い
+export const REPLACE_MS = 5 * 60 * 1000; // 自分の番で5分打たなければ、いてもいなくても、待っている人が CPU に代えられる
 
 function startGame(room) {
   room.game++;
@@ -120,7 +121,31 @@ export function kickAway(room, pid, online, now, kickMs = KICK_MS) {
   if (now - since < kickMs) return null;
   (room.left ??= []).push(seat.pid);
   room.seats[p] = null;
-  return { kicked: p, name: seat.name };
+  return { kicked: p, p, name: seat.name, why: 'away' };
+}
+
+// 部屋を出る。席は CPU（集まり中なら、あき席）になる。部屋を作った人が集まり中に出たら、次の人が席0（部屋を作った人）になる
+export function leave(room, pid) {
+  const i = seatOf(room, pid);
+  if (i < 0) return '座っていません';
+  const name = room.seats[i].name;
+  room.seats[i] = null;
+  room.votes = room.votes.filter((v) => v !== pid);
+  if (room.phase === 'lobby' && i === 0) {
+    const k = room.seats.findIndex(Boolean);
+    if (k > 0) { room.seats[0] = room.seats[k]; room.seats[k] = null; }
+  }
+  return { p: i, name, why: 'leave' };
+}
+// 待っている人が「CPUに代わってもらう」。番の人が5分打っていなければ、その席を CPU にする
+export function replace(room, pid, now, ms = REPLACE_MS) {
+  if (room.phase !== 'playing') return '今はできません';
+  const me = seatOf(room, pid), p = room.state.turn, seat = room.seats[p];
+  if (me < 0 || me === p || !seat) return 'できません';
+  if (now - (room.turnAt || 0) < ms) return 'まだ待ってあげてください';
+  (room.left ??= []).push(seat.pid);
+  room.seats[p] = null;
+  return { p, name: seat.name, why: 'replace' };
 }
 
 // 「この3人でもう一回」。座っている人が全員押したら次の試合（先手は画面の「もう一回」と同じ決め方）
@@ -145,5 +170,6 @@ export function view(room, pid, online) {
   const driver = room.seats.findIndex((s) => s && online.has(s.pid));
   return { id: room.id, phase: room.phase, cfg: room.cfg, hand: room.hand, seats, you: seatOf(room, pid),
     game: room.game, state: room.state, winners: room.winners, wins: room.wins, cpuDriver: driver, listed: room.listed !== false, chars: charsOf(room),
-    kicked: seatOf(room, pid) < 0 && (room.left || []).includes(pid) };
+    kicked: seatOf(room, pid) < 0 && (room.left || []).includes(pid),
+    turnWait: room.phase === 'playing' ? Date.now() - (room.turnAt || 0) : 0, replaceMs: REPLACE_MS };
 }
