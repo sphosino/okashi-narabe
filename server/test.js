@@ -18,6 +18,16 @@ const on = new Set([A, B]);
   assert.equal(G.setChar(r, B, 2), '試合が始まったら変えられません');
   const X2 = 'y'.repeat(16); r.seats[2] = null; assert.equal(G.join(r, X2, 'x', 2), null); assert.equal(r.seats[2].char, 0); }
 
+// 退室扱い：番の人が3分るすで、ほかの人が待っているときだけ。戻ってきたら CPU の席に入りなおせる
+{ const r = G.newRoom('kkkk2345', A, 'a'); G.join(r, B, 'b'); G.start(r, A);
+  r.state.turn = 1; r.turnAt = 0; G.markSeen(r, B, 0);
+  assert.equal(G.kickAway(r, A, new Set([A, B]), G.KICK_MS * 2), null, 'いる人は退室にしない');
+  assert.equal(G.kickAway(r, X, new Set([X]), G.KICK_MS * 2), null, '座っていない人は頼めない');
+  assert.equal(G.kickAway(r, A, new Set([A]), G.KICK_MS - 1), null, '3分たっていない');
+  assert.deepEqual(G.kickAway(r, A, new Set([A]), G.KICK_MS), { kicked: 1, name: 'b' });
+  assert.equal(r.seats[1], null); assert.equal(G.view(r, B, new Set([A])).kicked, true);
+  assert.equal(G.join(r, B, 'b'), null); assert.equal(G.seatOf(r, B), 1); assert.equal(G.view(r, B, new Set([A, B])).kicked, false); }
+
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
 assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);

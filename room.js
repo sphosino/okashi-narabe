@@ -25,10 +25,11 @@ function connect(id,onMsg){
     clearTimeout(timer);
     const s=ws=new WebSocket(API.replace(/^http/,'ws')+'/rooms/'+id+'/ws?pid='+me());
     s.onopen=()=>{wait=1000;queue.splice(0).forEach(m=>s.send(m));onMsg({t:'open'})};
-    s.onmessage=e=>{try{onMsg(JSON.parse(e.data))}catch(err){console.error(err)}};
+    s.onmessage=e=>{if(e.data==='pong')return;try{onMsg(JSON.parse(e.data))}catch(err){console.error(err)}};
     s.onclose=()=>{if(s!==ws)return;onMsg({t:'close'});timer=setTimeout(open,wait);wait=Math.min(wait*2,10000)}; // 少しずつ間をあけてつなぎ直す
   };
   open();
+  setInterval(()=>{if(ws&&ws.readyState===1)ws.send('ping')},20000); // ハートビート：生きていることを知らせる
   // スマホでアプリを切りかえて戻ってきたら、すぐつなぎ直す
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&ws&&ws.readyState>1){wait=1000;open()}});
 }

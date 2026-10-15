@@ -4,6 +4,8 @@
 //   GET  /rooms/<id>/ws?pid=…           WebSocket でつなぐ
 // WebSocket で受けるもの：{t:'join', name, char} / {t:'char', c} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
 // スタンプは保存せず、座っている人から来たものを、ほかの人に {t:'stamp', p, k} で配るだけ
+// {t:'poke'}：ほかの人の番を待っている人が30秒ごとに送る。番の人が3分るすなら退室扱いにして CPU に代える
+// ハートビート：ブラウザは20秒ごとに 'ping' を送り、サーバーは起こされずに 'pong' を返す。70秒来ない回線は「るす」とみなす
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
 // 送るもの：{t:'room', room:<その人向けの様子>, move?:<今打たれた手>} / {t:'err', msg}
 import { DurableObject } from 'cloudflare:workers';
@@ -40,7 +42,12 @@ export default {
   },
 };
 
+const STALE_MS = 70 * 1000;
 export class Room extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
   async init(id, pid, name, char) {
     if (await this.ctx.storage.get('room')) throw new Error('もうある部屋です');
     await this.save(G.newRoom(id, pid, name, char));
@@ -57,13 +64,22 @@ export class Room extends DurableObject {
   // 部屋の一覧に今の様子を知らせる（失敗しても対戦は止めない）
   async report(room) { try { await lobby(this.env).update(G.summary(room, this.online())); } catch (e) {} }
 
-  sockets() { return this.ctx.getWebSockets().filter((ws) => ws.readyState === WebSocket.OPEN); }
+  // つながっている回線。ping が70秒来ていないものは切れたとみなして閉じる
+  sockets() {
+    const now = Date.now();
+    return this.ctx.getWebSockets().filter((ws) => {
+      if (ws.readyState !== WebSocket.OPEN) return false;
+      const ts = this.ctx.getWebSocketAutoResponseTimestamp(ws);
+      if (ts && now - ts.getTime() > STALE_MS) { try { ws.close(1000, 'stale'); } catch (e) {} return false; }
+      return true;
+    });
+  }
   online() { return new Set(this.sockets().map((ws) => this.ctx.getTags(ws)[0])); }
   // つながっている全員に、それぞれ向けの様子を配る
-  broadcast(room, move) {
+  broadcast(room, move, extra) {
     const on = this.online();
     for (const ws of this.sockets()) {
-      try { ws.send(JSON.stringify({ t: 'room', room: G.view(room, this.ctx.getTags(ws)[0], on), move })); } catch (e) {}
+      try { ws.send(JSON.stringify({ t: 'room', room: G.view(room, this.ctx.getTags(ws)[0], on), move, ...extra })); } catch (e) {}
     }
   }
 
@@ -83,6 +99,12 @@ export class Room extends DurableObject {
     let msg; try { msg = JSON.parse(data); } catch (e) { return; }
     const room = await this.ctx.storage.get('room');
     if (!room) return;
+    if (msg.t === 'poke') {
+      const res = G.kickAway(room, pid, this.online(), Date.now(), Number(this.env.KICK_MS) || undefined); // KICK_MS は手元で試すときだけ短くする
+      if (res) { await this.save(room); await this.report(room); }
+      this.broadcast(room, undefined, res ? { left: res } : undefined);
+      return;
+    }
     if (msg.t === 'stamp') {
       const p = G.seatOf(room, pid), now = Date.now(), last = (this.lastStamp ??= new Map()).get(pid) || 0;
       if (p < 0 || !STAMPS.includes(msg.k) || now - last < 1000) return; // 座っている人だけ、連打はしない
@@ -107,9 +129,14 @@ export class Room extends DurableObject {
     this.broadcast(room, res || undefined);
     if (msg.t !== 'act' || room.phase === 'over' || room.state.moves === 1) await this.report(room); // 1手ごとには知らせない
   }
-  async left() { const room = await this.ctx.storage.get('room'); if (room) { this.broadcast(room); await this.report(room); } }
-  async webSocketClose(ws) { await this.left(); }
-  async webSocketError(ws) { await this.left(); }
+  async left(ws) {
+    const room = await this.ctx.storage.get('room'); if (!room) return;
+    const pid = this.ctx.getTags(ws)[0];
+    if (G.seatOf(room, pid) >= 0 && !this.online().has(pid)) { G.markSeen(room, pid, Date.now()); await this.ctx.storage.put('room', room); }
+    this.broadcast(room); await this.report(room);
+  }
+  async webSocketClose(ws) { await this.left(ws); }
+  async webSocketError(ws) { await this.left(ws); }
 }
 
 // 部屋の一覧。r:<id> に各部屋の summary を持つ

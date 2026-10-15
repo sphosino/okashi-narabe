@@ -452,7 +452,7 @@ function renderStatus(){
   if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
   if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
   if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
-  else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn];st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです。打ってくれたら進みます'}</span>`}
+  else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn];st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです。3分戻らなければ、CPUが代わりに打ちます'}</span>`}
   else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
@@ -792,6 +792,7 @@ function onRoom(m){
   if(m.t==='stamp'){if(alive())showStamp(m.p,m.k);return}
   if(m.t==='err')showToast(m.msg);
   if(!m.room)return;
+  if(m.left)showToast(`${m.left.name} さんが退室したので、CPUが代わりに打ちます`);
   RV=m.room;if(m.move)moveQ.push(m.move);
   roomPump(m.t==='err');
 }
@@ -827,6 +828,8 @@ function roomSync(force){
   render();
 }
 let cpuSent='',cpuSentAt=0;
+// ほかの人の番を待っているあいだ、30秒ごとにサーバーに「まだ？」と聞く（番の人が3分るすなら、サーバーが CPU に代える）
+setInterval(()=>{if(inRoom()&&RV&&RV.phase==='playing'&&RV.you>=0&&S.turn!==RV.you&&RV.seats[S.turn]&&!RV.seats[S.turn].cpu&&!RV.seats[S.turn].online)OkashiRoom.send({t:'poke'})},30000);
 function roomCpu(){
   if(!RV||RV.phase!=='playing'||RV.cpuDriver!==RV.you||RV.game!==roomGame||RV.state.moves!==S.moves)return;
   const key=roomGame+':'+S.moves;if(cpuSent===key&&Date.now()-cpuSentAt<5000)return; // 同じ手を何度も送らない
@@ -894,7 +897,7 @@ function renderLobby(){
           :`<p class="note">③ ${esc(RV.seats[0].name)} さんが「はじめる」を押すのを待っています</p>`);
     }else if(RV.seats.some(s=>s.empty))body=lobby
       ?`<p class="note">${esc(RV.seats[0].name)} さんの部屋に招待されました</p>`+nameBox+'<button class="btn primary" id="join" type="button">参加する</button>'
-      :'<p class="note">もう試合が始まっています。CPUの席と交代して、途中から参加できます</p>'+nameBox
+      :`<p class="note">${RV.kicked?'長いあいだるすだったので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます':'もう試合が始まっています。CPUの席と交代して、途中から参加できます'}</p>`+nameBox
         +'<div class="btnrow"><button class="btn primary" id="join" type="button">CPUと交代して参加する</button><button class="btn" id="watch" type="button">見るだけ</button></div>';
     else body=`<p class="note">この部屋は満員です${lobby?'':'。試合を見ることはできます'}</p><div class="btnrow">${lobby?'':'<button class="btn primary" id="watch" type="button">見るだけ</button>'}<a class="btn" href="./">ひとりで遊ぶ</a></div>`;
     h=`<div class="card"><h2>${lobby?'友達と遊ぶ':'試合中です'}</h2><div class="seats">${seats}</div>${body}</div>`;
