@@ -6,11 +6,13 @@
 <style>[hidden]{display:none!important}img{max-width:100%}body{margin:0}</style>
 <title>おかしならべ</title>
 <script>
-/* アクセス解析（Google アナリティクス）。mataasobo.com だけで動かし、広告用デモ（?demo）では数えない */
+/* アクセス解析（Google アナリティクス）と広告（AdSense）。mataasobo.com だけで動かし、広告用デモ（?demo）では数えない */
 window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}
 if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).has('demo')){
   const s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=G-E7FT1414CV';document.head.appendChild(s);
   gtag('js',new Date());gtag('config','G-E7FT1414CV');
+  const a=document.createElement('script');a.async=true;a.crossOrigin='anonymous'; // AdSense（広告）
+  a.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5893418223096450';document.head.appendChild(a);
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
