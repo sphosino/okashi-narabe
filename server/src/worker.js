@@ -1,8 +1,8 @@
 // 友人戦のサーバー（Cloudflare Workers + Durable Objects）。部屋1つが Durable Object 1つ
 //   GET  /rooms                         部屋の一覧（人待ち・途中参加できる部屋が先）
-//   POST /rooms            {pid, name} → {id}  部屋を作る（作った人が席0に座る）
+//   POST /rooms            {pid, name, char} → {id}  部屋を作る（作った人が席0に座る）
 //   GET  /rooms/<id>/ws?pid=…           WebSocket でつなぐ
-// WebSocket で受けるもの：{t:'join', name} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
+// WebSocket で受けるもの：{t:'join', name, char} / {t:'char', c} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
 // スタンプは保存せず、座っている人から来たものを、ほかの人に {t:'stamp', p, k} で配るだけ
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
 // 送るもの：{t:'room', room:<その人向けの様子>, move?:<今打たれた手>} / {t:'err', msg}
@@ -27,7 +27,7 @@ export default {
       const body = await req.json().catch(() => ({}));
       if (!PID.test(body.pid ?? '')) return json({ error: 'pid がおかしいです' }, 400);
       const id = newId();
-      await env.ROOM.get(env.ROOM.idFromName(id)).init(id, body.pid, body.name);
+      await env.ROOM.get(env.ROOM.idFromName(id)).init(id, body.pid, body.name, body.char);
       return json({ id });
     }
     const m = url.pathname.match(/^\/rooms\/([a-z0-9]+)\/ws$/);
@@ -41,9 +41,9 @@ export default {
 };
 
 export class Room extends DurableObject {
-  async init(id, pid, name) {
+  async init(id, pid, name, char) {
     if (await this.ctx.storage.get('room')) throw new Error('もうある部屋です');
-    await this.save(G.newRoom(id, pid, name));
+    await this.save(G.newRoom(id, pid, name, char));
   }
   async save(room) {
     await this.ctx.storage.put('room', room);
@@ -92,7 +92,8 @@ export class Room extends DurableObject {
       return;
     }
     let res = null;
-    if (msg.t === 'join') res = G.join(room, pid, msg.name);
+    if (msg.t === 'join') res = G.join(room, pid, msg.name, msg.char);
+    else if (msg.t === 'char') res = G.setChar(room, pid, msg.c);
     else if (msg.t === 'start') res = G.start(room, pid);
     else if (msg.t === 'act') res = G.act(room, pid, msg.game, msg.n, msg.a);
     else if (msg.t === 'again') res = G.again(room, pid);

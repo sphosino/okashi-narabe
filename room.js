@@ -1,6 +1,6 @@
 // 友人戦の通信。画面のことは何も知らない（ブラウザでは window.OkashiRoom）
 //   list()                    部屋の一覧を返す（人待ち・途中参加できる部屋が先）
-//   create(name)              部屋を作って id を返す
+//   create(name, char)        部屋を作って id を返す（char は好きなキャラ）
 //   connect(id, onMsg)        つなぐ。切れたらつなぎ直す。onMsg にサーバーからの {t, room, move, msg} を渡す
 //   send(msg)                 {t:'join'|'start'|'act'|'again', …} を送る
 //   me()                      このブラウザの番号（pid）。席を覚えておくための秘密の番号
@@ -15,8 +15,8 @@ function me(){
   return p;
 }
 async function list(){const r=await fetch(API+'/rooms');if(!r.ok)throw new Error('一覧を取れませんでした');return (await r.json()).rooms}
-async function create(name){
-  const r=await fetch(API+'/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pid:me(),name})});
+async function create(name,char){
+  const r=await fetch(API+'/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({pid:me(),name,char})});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'部屋を作れませんでした');return j.id;
 }
 let ws=null,queue=[],wait=1000,timer=null;

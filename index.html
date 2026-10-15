@@ -28,6 +28,7 @@ if(location.hostname==='mataasobo.com'&&!new URLSearchParams(location.search).ha
   --bg:#ffe3ec; --dot:#ffd0df; --card:#fffaf6; --ink:#5b2f20; --muted:#a3695b;
   --choc:#6b3a25; --choc2:#56301e; --cell:#8a5134; --cell2:#9d6141;
   --p0:#ff6f9f; --p1:#43b2f5; --p2:#6cc94e; --gold:#ffbf2f; --cream:#fff6ee;
+  --s0:#ff6f9f; --s1:#43b2f5; --s2:#6cc94e; /* 席ごとの色。選んだキャラの色に変わる */
   --display:"Mochiy Pop One","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
   --body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
 }
@@ -37,6 +38,12 @@ body{margin:0;padding:0 16px;color:var(--ink);font-family:var(--body);background
   background-size:34px 34px;background-position:0 0,17px 17px}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
 .wrap{max-width:540px;margin:0 auto;padding-block:16px 32px;display:flex;flex-direction:column;gap:12px}
+.main,.side{display:contents} /* スマホでは縦に1列。広い画面では左（盤）と右（お皿・スタンプ・設定）の2列 */
+@media (min-width:900px){
+  .wrap{max-width:1000px;display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:24px;align-items:start}
+  .main,.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .side{position:sticky;top:12px;padding-top:56px}
+}
 header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 h1{font-family:var(--display);font-weight:400;font-size:1.9rem;margin:0;letter-spacing:.04em;color:var(--p0);
   text-shadow:2px 2px 0 var(--cream),4px 4px 0 #f7b3c8;text-wrap:balance}
@@ -47,7 +54,8 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
   box-shadow:0 3px 0 #f0b9c9;border:2.5px solid transparent;transition:transform .2s,border-color .2s}
 .pl.on{border-color:var(--c);transform:translateY(-3px) rotate(-1deg);box-shadow:0 5px 0 var(--c)}
 .pl .top{display:flex;align-items:center;gap:5px;min-width:0}
-.pl .icon{width:30px;height:30px;flex:none}
+.pl .icon{width:30px;height:30px;flex:none;border:0;background:none;padding:0;cursor:pointer;transition:transform .15s}
+.pl button.icon:hover,.pl button.icon:focus-visible{transform:scale(1.18)}
 .pl input{min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:700 .92rem var(--body);padding:2px 0}
 .pl input:focus{outline:2px dashed var(--c);outline-offset:2px;border-radius:4px}
 .jar{display:flex;gap:3px;flex-wrap:wrap}
@@ -63,7 +71,7 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .status b{color:var(--c);font-weight:400}
 .status .sub{font-family:var(--body);font-weight:700;font-size:.8rem;color:var(--muted);margin-left:4px}
 
-.stage{position:relative}
+.stage{position:relative;width:min(100%,max(300px,calc(100vh - 240px)));margin-inline:auto} /* 画面が低いときは盤を小さくして、全体が収まるように */
 .board{display:grid;gap:6px;padding:10px;aspect-ratio:1;width:100%;max-width:100%;box-sizing:border-box;border-radius:20px;
   background:linear-gradient(160deg,var(--choc),var(--choc2));box-shadow:0 6px 0 #3e2014,0 14px 30px -10px #5b2f2066}
 .cell{position:relative;min-width:0;min-height:0;overflow:visible;border-radius:22%;background:linear-gradient(150deg,var(--cell2),var(--cell));
@@ -138,6 +146,14 @@ body.demo .foot{display:none}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
 .friends{display:flex;justify-content:center}
+/* キャラえらび：名前カードのお菓子を押すと出る。部屋のカードにも同じ並び */
+.picker{position:absolute;z-index:30;background:var(--card);border-radius:16px;padding:10px;box-shadow:0 6px 0 #f0b9c9,0 16px 30px -10px #5b2f2066;animation:pop .3s cubic-bezier(.2,1.6,.4,1)}
+.picker p{margin:0 0 6px;font-weight:700;font-size:.8rem;color:var(--muted);text-align:center}
+.picker div,.charrow{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.picker button,.charrow button{display:flex;flex-direction:column;align-items:center;gap:2px;border:2px solid #f3e0e3;background:#fff;border-radius:12px;padding:4px 6px;font:700 .72rem var(--body);color:var(--ink);cursor:pointer;min-width:58px}
+.picker button.on,.charrow button.on{border-color:var(--c);box-shadow:0 0 0 2px var(--c)}
+.picker svg,.charrow svg{width:40px;height:40px}
+.charrow button:disabled{opacity:.35;cursor:default}
 /* スタンプ：盤の下のボタンで送ると、送った人の名前カードの上にぽんと出る */
 .stamps{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 .stamps button{display:flex;align-items:center;gap:3px;font:700 .8rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:999px;padding:2px 10px 2px 3px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
@@ -187,6 +203,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="wrap">
+  <div class="main">
   <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
   <div class="players" id="players"></div>
   <div class="status" id="status" aria-live="polite"></div>
@@ -196,6 +213,8 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <div class="result lobby" id="lobby" hidden></div>
     <div class="result lobby" id="rooms" hidden></div>
   </div>
+  </div>
+  <div class="side">
   <div class="tray" id="tray"></div>
   <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
@@ -232,13 +251,17 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
   <p class="foot"><a href="/">また遊ぼ</a>・<a href="/privacy.html">プライバシーポリシー</a></p>
+  </div>
 </div>
 
 <script src="rules.js"></script>
 <script src="cpu.js"></script>
 <script src="room.js"></script>
 <script>
-const PC=['--p0','--p1','--p2'],SWEET=['マカロン','キャンディ','ゼリー'];
+const PC=['--s0','--s1','--s2']; // 席ごとの色（選んだキャラの色が入る）
+// キャラ。席 p のキャラは S.chars[p]。盤のマスには席の番号が入り、見た目だけキャラで変わる
+const CH=[{n:'マカロン',c:'#ff6f9f'},{n:'キャンディ',c:'#43b2f5'},{n:'ゼリー',c:'#6cc94e'},{n:'プリン',c:'#e8960c'}];
+const chName=p=>CH[S.chars[p]].n;
 const faceNormal=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
   <path d="M45.5 ${y+5} Q50 ${y+9} 54.5 ${y+5}" stroke="#5b2f20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
   <ellipse cx="33" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/><ellipse cx="67" cy="${y+5}" rx="5" ry="3" fill="#ff5d8f" opacity=".45"/>`;
@@ -290,12 +313,20 @@ const makeArt=()=>[
   <path d="M17 80 Q50 88 83 80" stroke="#000" stroke-width="0" fill="currentColor" opacity=".5"/>
   <path d="M27 72 Q24 42 36 34" stroke="#fff" stroke-width="5" fill="none" opacity=".55" stroke-linecap="round"/>
   <path d="M50 22 Q52 10 60 7" stroke="#4a7a2a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <circle cx="50" cy="20" r="8" fill="#ff4f6d"/><circle cx="47" cy="17" r="2.2" fill="#fff" opacity=".8"/>${face(54)}`
+  <circle cx="50" cy="20" r="8" fill="#ff4f6d"/><circle cx="47" cy="17" r="2.2" fill="#fff" opacity=".8"/>${face(54)}`,
+ // カスタードプリン（カラメルがとろり）
+ `<ellipse cx="50" cy="83" rx="40" ry="8" fill="#fff6ee"/><ellipse cx="50" cy="83" rx="40" ry="8" fill="#000" opacity=".06"/>
+  <path d="M20 81 L27 38 Q29 30 50 30 Q71 30 73 38 L80 81 Q50 87 20 81 Z" fill="#ffd54f"/>
+  <path d="M20 81 Q50 87 80 81" stroke="#e8b830" stroke-width="3" fill="none"/>
+  <path d="M27 38 Q29 28 50 28 Q71 28 73 38 Q73 45 66 44 Q64 51 60 45 Q50 47 40 45 Q36 52 33 44 Q27 45 27 38 Z" fill="#a0521d"/>
+  <ellipse cx="40" cy="33" rx="7" ry="2.4" fill="#fff" opacity=".35"/>
+  <path d="M30 74 Q29 60 32 52" stroke="#fff" stroke-width="5" fill="none" opacity=".5" stroke-linecap="round"/>${face(61)}`
 ];
 const ART=makeArt();face=faceLove;const ART_LOVE=makeArt();face=faceNormal;
 const STAMP_ART={};for(const[k]of STAMPS){face=FACE[k];STAMP_ART[k]=makeArt()}face=faceNormal;
-const stampSweet=(p,k,cls='')=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="color:var(${PC[p]})">${STAMP_ART[k][p]}</svg>`;
-const sweet=(p,cls='sweet',love=false)=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${(love?ART_LOVE:ART)[p]}</svg>`;
+const stampSweet=(p,k,cls='')=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="color:var(${PC[p]})">${STAMP_ART[k][S.chars[p]]}</svg>`;
+const sweet=(p,cls='sweet',love=false)=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${(love?ART_LOVE:ART)[S.chars[p]]}</svg>`;
+const charSvg=c=>`<svg viewBox="0 0 100 100" aria-hidden="true" style="color:${CH[c].c}">${ART[c]}</svg>`; // 席ではなくキャラで描く（キャラえらび用）
 const $=id=>document.getElementById(id);
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cssv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -314,7 +345,7 @@ let RV=null,roomGame=0,roomErr='',moveQ=[];
 // 今この画面で打てる番か：一人で遊ぶときは人の席なら誰でも、友人戦では自分の席の番だけ
 const humanTurn=()=>inRoom()?!!RV&&RV.phase==='playing'&&S.turn===RV.you:!S.cpu[S.turn];
 
-const S={names:['あなた','キャンディ','ゼリー'],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
+const S={names:['あなた','キャンディ','ゼリー'],chars:[0,1,2],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
   busy:false,sel:null,eating:[],passMsg:''};
 let hist=[];
@@ -391,12 +422,13 @@ function renderPlayers(){
   const box=$('players');
   if(!box.children.length){
     box.innerHTML=S.names.map((_,i)=>`<div class="pl" id="pl${i}" style="--c:var(${PC[i]})">
-      <div class="top"><span class="icon">${sweet(i,'')}</span><input id="name${i}" maxlength="8" aria-label="プレイヤー${i+1}の名前"></div>
+      <div class="top"><button type="button" class="icon" id="ic${i}" aria-label="キャラをえらぶ">${sweet(i,'')}</button><input id="name${i}" maxlength="8" aria-label="プレイヤー${i+1}の名前"></div>
       <div class="jar" id="jar${i}" aria-label="点数"></div>
       <div class="meta"><span id="hd${i}"></span><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
     S.names.forEach((_,i)=>{const el=$('name'+i);el.value=S.names[i];
-      el.addEventListener('input',()=>{S.names[i]=el.value||SWEET[i];renderStatus()});
-      $('who'+i).addEventListener('click',()=>{S.cpu[i]=!S.cpu[i];S.sel=null;render()})});
+      el.addEventListener('input',()=>{S.names[i]=el.value||chName(i);renderStatus()});
+      $('who'+i).addEventListener('click',()=>{S.cpu[i]=!S.cpu[i];S.sel=null;render()});
+      $('ic'+i).addEventListener('click',e=>openPicker(i,e.currentTarget))});
   }
   S.names.forEach((_,i)=>{
     $('pl'+i).classList.toggle('on',!S.over&&S.turn===i);
@@ -433,7 +465,7 @@ function renderBoard(){
   S.cells.forEach((v,i)=>{
     const c=document.createElement('div');c.className='cell';c.id='c'+i;c.dataset.i=i;
     const r=Math.floor(i/N())+1,cl=i%N()+1;c.setAttribute('role','gridcell');
-    let label=`${r}行${cl}列 ${v===null?'空き':SWEET[v]}`;
+    let label=`${r}行${cl}列 ${v===null?'空き':chName(v)}`;
     if(v!==null){
       const fx=isFixed(i),mine=human&&v===S.turn;
       if(fx){c.classList.add('fixed');label+='（恋モード）'}
@@ -450,7 +482,7 @@ function renderBoard(){
 function renderTray(){
   const t=$('tray'),p=S.turn,human=!DEMO&&!S.over&&!S.busy&&humanTurn();
   let hand='';
-  for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+SWEET[p]+'を選ぶ"':''}>${sweet(p)}</div>`;
+  for(let k=0;k<S.hands[p];k++)hand+=`<div class="h${human?' mine':''}${human&&S.sel&&S.sel.kind==='hand'&&k===0?' sel':''}" data-hand="${k}" ${human?'tabindex="0" role="button" aria-label="手持ちの'+chName(p)+'を選ぶ"':''}>${sweet(p)}</div>`;
   t.innerHTML=`<span class="lbl">${S.over?'':esc(S.names[p])+'の手持ち'}</span><div class="hand" id="hand">${hand||(S.over?'':'<span class="note">手持ちなし。盤のお菓子を動かそう</span>')}</div>
     <span class="swaps">入れかえ 何回でもOK</span>`;
 }
@@ -471,7 +503,7 @@ const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
-  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();renderRooms();renderStamps();
+  applyChars();renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();renderRooms();renderStamps();
   if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':'おかしならべ';
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
@@ -682,6 +714,44 @@ function cpuTurn(){
   else doAct(best);
 }
 
+// ================= キャラえらび =================
+// 一人で遊ぶとき：どの席のキャラも変えられる（ほかの席と同じキャラなら入れかわる）。人の席で選んだキャラは次からも使う
+// 友人戦：部屋のカードか自分の名前カードで、試合の前に自分のキャラを選ぶ（ほかの人が使っているキャラは選べない）
+const favChar=()=>{let c=null;try{c=+localStorage.getItem('mataasobo-char')}catch(e){}return c>=0&&c<CH.length?c:0};
+const saveChar=c=>{try{localStorage.setItem('mataasobo-char',c)}catch(e){}};
+let charsKey='';
+function applyChars(){ // 席の色とアイコンを、今のキャラに合わせる
+  const k=S.chars.join();if(k===charsKey)return;charsKey=k;
+  S.chars.forEach((c,p)=>document.documentElement.style.setProperty('--s'+p,CH[c].c));
+  for(let p=0;p<3;p++){const ic=$('ic'+p);if(ic)ic.innerHTML=sweet(p,'')}
+  stampsKey='';
+}
+function closePicker(){const d=$('picker');if(d)d.remove()}
+document.addEventListener('pointerdown',e=>{const d=$('picker');if(d&&!d.contains(e.target)&&!e.target.closest('button.icon'))d.remove()},true);
+function openPicker(p,anchor){
+  if(DEMO)return;
+  if(inRoom()){if(!RV||RV.you!==p)return;if(RV.phase!=='lobby'){showToast('キャラは試合の前に選べます');return}}
+  if($('picker')&&$('picker').dataset.p==p){closePicker();return}
+  closePicker();
+  const taken=inRoom()?RV.seats.map((s,i)=>!s.empty&&i!==p?S.chars[i]:-1):[];
+  const d=document.createElement('div');d.className='picker';d.id='picker';d.dataset.p=p;
+  d.innerHTML=`<p>${esc(S.names[p])} のキャラ</p><div>${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${S.chars[p]===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div>`;
+  document.body.appendChild(d);
+  const r=anchor.getBoundingClientRect(),w=d.offsetWidth;
+  d.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+scrollX+'px';d.style.top=r.bottom+scrollY+8+'px';
+  d.addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(b&&!b.disabled)chooseChar(p,+b.dataset.c)});
+}
+function chooseChar(p,c){
+  closePicker();
+  if(inRoom()){saveChar(c);OkashiRoom.send({t:'char',c});return}
+  const old=S.chars[p],q=S.chars.indexOf(c);
+  const rename=(i,from,to)=>{if(S.names[i]===CH[from].n){S.names[i]=CH[to].n;const el=$('name'+i);if(el)el.value=S.names[i]}};
+  if(q>=0&&q!==p){S.chars[q]=old;rename(q,c,old)} // ほかの席と入れかわる
+  rename(p,old,c);S.chars[p]=c;
+  if(!S.cpu[p])saveChar(c);
+  gtag('event','char_pick',{c:CH[c].n,mode:'solo'});render();
+}
+
 // ================= スタンプ =================
 // 自分のスタンプ：自分の席（一人で遊ぶときは人の席）のお菓子が、その表情で出る。友人戦ではサーバーを通してみんなに届く
 // CPU も、入れかえられた・揃えられた・勝った負けた でスタンプを返す（デモでは全員）。どの画面でも同じになるよう、くじは使わない
@@ -736,7 +806,8 @@ function roomPump(force){
   roomSync(force);
 }
 function roomNames(){
-  S.names=RV.seats.map((s,i)=>s.name||SWEET[i]);S.cpu=RV.seats.map(s=>s.cpu||s.empty);S.wins=RV.wins.slice();
+  S.chars=(RV.chars||[0,1,2]).slice();applyChars();
+  S.names=RV.seats.map((s,i)=>s.name||chName(i));S.cpu=RV.seats.map(s=>s.cpu||s.empty);S.wins=RV.wins.slice();
 }
 function roomSync(force){
   const v=RV;roomNames();
@@ -775,7 +846,7 @@ const myName=()=>{try{return localStorage.getItem('mataasobo-name')||''}catch(e)
 const saveName=v=>{try{localStorage.setItem('mataasobo-name',v)}catch(e){}};
 async function makeRoom(where){
   gtag('event','room_create',{where});showToast('部屋を作っています…');
-  try{const id=await OkashiRoom.create(myName()||'ゲスト');location.href='?room='+id}
+  try{const id=await OkashiRoom.create(myName()||'ゲスト',favChar());location.href='?room='+id}
   catch(e){showToast('部屋を作れませんでした。少し時間をおいて、もう一度ためしてください')}
 }
 // 部屋の一覧（「みんなと遊ぶ」）。開いているあいだ5秒ごとに取りなおす
@@ -790,9 +861,9 @@ function renderRooms(){
   const el=$('rooms');
   if(!roomsOpen||inRoom()){el.hidden=true;roomsHTML='';return}
   const tag=r=>r.phase==='lobby'?'<span class="tag wait">人待ち</span>':r.open?'<span class="tag join">途中参加OK</span>':r.phase==='over'?'<span class="tag">終わったところ</span>':'<span class="tag">対戦中</span>';
-  const seat=(s,i)=>`<span style="color:var(${PC[i]})">${s?esc(s.name)+(s.online?'':'（るす）'):'あき'}</span>`;
+  const seat=(s,i,r)=>`<span style="color:${CH[(r.chars||[0,1,2])[i]].c}">${s?esc(s.name)+(s.online?'':'（るす）'):'あき'}</span>`;
   const rows=roomsList===null?`<p class="note">${esc(roomsErr||'さがしています…')}</p>`
-    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${esc((r.seats[0]||{name:'だれか'}).name)} の部屋</span>${tag(r)}<span class="seatsm">${r.seats.map(seat).join('<span>・</span>')}</span></a>`).join('')
+    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${esc((r.seats[0]||{name:'だれか'}).name)} の部屋</span>${tag(r)}<span class="seatsm">${r.seats.map((s,i)=>seat(s,i,r)).join('<span>・</span>')}</span></a>`).join('')
     :'<p class="note">まだ部屋がありません。作って待ってみよう</p>';
   const h=`<div class="card"><h2>みんなと遊ぶ</h2><button class="btn primary" id="mkroom" type="button">＋ 部屋を作る</button><div class="roomlist">${rows}</div><p class="note">部屋をえらぶと、空いている席に参加できます。リンクを送って友達を呼ぶこともできます</p><button class="btn" id="closeRooms" type="button">とじる</button></div>`;
   if(h===roomsHTML&&!el.hidden)return;
@@ -809,7 +880,9 @@ function renderLobby(){
   else{
     const url=location.origin+location.pathname+'?room='+RV.id,you=RV.you,lobby=RV.phase==='lobby';
     const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?(lobby?'あき（始めたらCPU）':'CPU'):esc(s.name)+(i===you?'（あなた）':'')}</span><span class="on${s.online?' y':''}">${s.empty?'':s.online?'● いる':'るす'}</span></div>`).join('');
-    const nameBox=`<label>あなたの名前<input id="myName" maxlength="8" placeholder="なまえ" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`;
+    const mine=you>=0?S.chars[you]:favChar(),taken=RV.seats.map((s,i)=>!s.empty&&i!==you?S.chars[i]:-1);
+    const charRow=lobby?`<label>あなたのキャラ<div class="charrow">${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${mine===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div></label>`:'';
+    const nameBox=`<label>あなたの名前<input id="myName" maxlength="8" placeholder="なまえ" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`+charRow;
     let body;
     if(you>=0){
       const msg='おかしならべで遊ぼ！ '+url;
@@ -838,7 +911,9 @@ function renderLobby(){
   on('go',()=>{gtag('event','room_start',{seated:RV.seats.filter(s=>!s.empty).length});OkashiRoom.send({t:'start'})});
   on('watch',()=>{watching=true;render()});
   const ls=$('listed');if(ls)ls.addEventListener('change',()=>OkashiRoom.send({t:'listed',on:ls.checked}));
-  on('join',()=>{const v=($('myName').value||'').trim()||'ゲスト';saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v})});
+  on('join',()=>{const v=($('myName').value||'').trim()||'ゲスト';saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v,char:favChar()})});
+  el.querySelectorAll('.charrow button[data-c]').forEach(b=>b.addEventListener('click',()=>{const c=+b.dataset.c;
+    if(RV.you>=0){chooseChar(RV.you,c)}else{saveChar(c);lobbyHTML='';renderLobby()}}));
 }
 
 // ================= 広告用デモ（?demo） =================
@@ -881,7 +956,7 @@ function demoReplay(log){
 }
 function demoInit(){
   document.body.classList.add('demo');
-  S.names=SWEET.slice();S.cpu=[false,false,false];$('love').value='on';
+  S.chars=[0,1,2];applyChars();S.names=[0,1,2].map(chName);S.cpu=[false,false,false];$('love').value='on';
   S.names.forEach((n,i)=>{const e=$('name'+i);if(e)e.value=n});
   demoStart();
 }
@@ -903,6 +978,10 @@ function start(data){
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;setCfg();setRules();
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
+  if(!DEMO&&!inRoom()){ // 自分の席（0）に好きなキャラ、CPUの席には残りのキャラ
+    const f=favChar(),rest=[0,1,2,3].filter(c=>c!==f);S.chars=[f,rest[0],rest[1]];
+    [1,2].forEach(i=>{if(CH.some(c=>c.n===S.names[i])){S.names[i]=chName(i);const el=$('name'+i);if(el)el.value=S.names[i]}});
+    applyChars();render()}
   if(!DEMO&&!inRoom()){saidHi=true;[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
   if(DEMO)demoInit();
   else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}

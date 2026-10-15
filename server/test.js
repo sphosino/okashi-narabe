@@ -8,6 +8,16 @@ const R = require('../rules.js'), CPU = require('../cpu.js');
 const A = 'a'.repeat(16), B = 'b'.repeat(16), X = 'x'.repeat(16);
 const on = new Set([A, B]);
 
+// キャラ：好きなキャラを選べて、かぶったら空いているキャラ。始めたら、あき席に残りのキャラ
+{ const r = G.newRoom('cccc2345', A, 'a', 3);
+  assert.equal(G.join(r, B, 'b', 3), null); assert.equal(r.seats[1].char, 0);
+  assert.equal(G.setChar(r, B, 3), 'そのキャラはほかの人が使っています');
+  assert.equal(G.setChar(r, B, 1), null);
+  assert.deepEqual(G.view(r, A, on).chars, [3, 1, 0]);
+  G.start(r, A); assert.deepEqual(r.chars, [3, 1, 0]);
+  assert.equal(G.setChar(r, B, 2), '試合が始まったら変えられません');
+  const X2 = 'y'.repeat(16); r.seats[2] = null; assert.equal(G.join(r, X2, 'x', 2), null); assert.equal(r.seats[2].char, 0); }
+
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
 assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);
