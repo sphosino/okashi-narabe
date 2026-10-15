@@ -38,11 +38,15 @@ body{margin:0;padding:0 16px;color:var(--ink);font-family:var(--body);background
   background-size:34px 34px;background-position:0 0,17px 17px}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
 .wrap{max-width:540px;margin:0 auto;padding-block:16px 32px;display:flex;flex-direction:column;gap:12px}
-.main,.side{display:contents} /* スマホでは縦に1列。広い画面では左（盤）と右（お皿・スタンプ・設定）の2列 */
+/* スマホでは縦に1列（名前カード → 盤 → お皿 → スタンプ → 設定）。order で並びを決める
+   広い画面では、左に盤と手持ちのお皿、右に名前カード・スタンプ・設定の2列 */
+.main,.side{display:contents}
+header{order:1}.players{order:2}.status{order:3}.stage{order:4}.tray{order:5}.stamps{order:6}.friends{order:7}.controls{order:8}.rules{order:9}.foot{order:10}
 @media (min-width:900px){
-  .wrap{max-width:1000px;display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:24px;align-items:start}
+  .wrap{max-width:1040px;display:grid;grid-template-columns:minmax(0,1fr) 360px;column-gap:24px;align-items:start}
   .main,.side{display:flex;flex-direction:column;gap:12px;min-width:0}
   .side{position:sticky;top:12px;padding-top:56px}
+  .wrap .stage{width:min(100%,max(300px,calc(100vh - 230px)))} /* 盤の下のお皿まで画面に収まる大きさ */
 }
 header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 h1{font-family:var(--display);font-weight:400;font-size:1.9rem;margin:0;letter-spacing:.04em;color:var(--p0);
@@ -205,7 +209,6 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
 <div class="wrap">
   <div class="main">
   <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
-  <div class="players" id="players"></div>
   <div class="status" id="status" aria-live="polite"></div>
   <div class="stage" id="stage">
     <div class="board" id="board" role="grid" aria-label="盤面"></div>
@@ -213,9 +216,10 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <div class="result lobby" id="lobby" hidden></div>
     <div class="result lobby" id="rooms" hidden></div>
   </div>
+  <div class="tray" id="tray"></div>
   </div>
   <div class="side">
-  <div class="tray" id="tray"></div>
+  <div class="players" id="players"></div>
   <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
   <div class="controls">
