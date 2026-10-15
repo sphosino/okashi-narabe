@@ -96,7 +96,7 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 
 .tray{background:var(--card);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 3px 0 #f0b9c9;min-height:58px}
 .tray .lbl{font-weight:700;font-size:.8rem;color:var(--muted);flex:none}
-.hand{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.hand{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 170px;min-width:0} /* 幅に最低限をとり、せまい画面では次の行に回す（文字が1字ずつ折り返さないように） */
 .hand .h{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#f8e9e1;touch-action:none}
 .hand .h.mine{cursor:grab}
 .hand .h.mine:hover .sweet{transform:translateY(-3px) rotate(4deg)}
