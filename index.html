@@ -138,6 +138,18 @@ body.demo .foot{display:none}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
 .friends{display:flex;justify-content:center}
+/* スタンプ：盤の下のボタンで送ると、送った人の名前カードの上にぽんと出る */
+.stamps{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.stamps button{display:flex;align-items:center;gap:3px;font:700 .8rem var(--body);color:var(--ink);background:var(--card);border:2px solid #ecc5c9;border-radius:999px;padding:2px 10px 2px 3px;cursor:pointer;box-shadow:0 2px 0 #ecc5c9}
+.stamps button:active{transform:translateY(2px);box-shadow:none}
+.stamps svg{width:28px;height:28px}
+body.demo .stamps{display:none}
+.stampPop{position:absolute;left:50%;top:-30px;z-index:10;display:flex;flex-direction:column;align-items:center;pointer-events:none;transform:translateX(-50%);
+  animation:stampIn .4s cubic-bezier(.2,1.6,.4,1),stampOut .4s ease-in 2.3s forwards}
+.stampPop svg{width:62px;height:62px;filter:drop-shadow(0 3px 0 #0002)}
+.stampPop span{margin-top:-8px;background:#fff;border-radius:999px;padding:2px 10px;font:400 .85rem var(--display);color:var(--c);box-shadow:0 2px 0 #f0b9c9;white-space:nowrap}
+@keyframes stampIn{from{transform:translateX(-50%) scale(.3);opacity:0}}
+@keyframes stampOut{to{transform:translateX(-50%) translateY(-16px);opacity:0}}
 /* 友人戦（?room=…）：設定や「1手戻す」は隠し、集まるあいだは盤の上に部屋のカードを出す */
 body.room .controls,body.room .friends{display:none}
 .result.lobby{place-items:start center;bottom:auto;min-height:100%;padding:10px 0} /* 盤より長くなったら、下にのびる（ページごとスクロール） */
@@ -185,6 +197,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <div class="result lobby" id="rooms" hidden></div>
   </div>
   <div class="tray" id="tray"></div>
+  <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
   <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button></div>
   <div class="controls">
     <label for="size">盤
@@ -234,6 +247,29 @@ const heartAt=(x,y,s)=>`<path d="M${x} ${y+s*.9} C${x-s*1.6} ${y-s*.1} ${x-s*.8}
 const faceLove=y=>`${heartAt(41,y,4.4)} fill="#ff2f6d"/>${heartAt(59,y,4.4)} fill="#ff2f6d"/>
   <ellipse cx="50" cy="${y+7}" rx="2.6" ry="2.2" fill="#5b2f20"/>
   <ellipse cx="32" cy="${y+5}" rx="6.5" ry="3.6" fill="#ff2f6d" opacity=".55"/><ellipse cx="68" cy="${y+5}" rx="6.5" ry="3.6" fill="#ff2f6d" opacity=".55"/>`;
+// スタンプの表情（目は x=41 と 59、y はお菓子ごとの目の高さ）
+const INK='#5b2f20',cheek=(y,o=.45,r=5)=>`<ellipse cx="33" cy="${y+5}" rx="${r}" ry="3" fill="#ff5d8f" opacity="${o}"/><ellipse cx="67" cy="${y+5}" rx="${r}" ry="3" fill="#ff5d8f" opacity="${o}"/>`;
+const happyEyes=y=>`<path d="M37 ${y+1.5} Q41 ${y-3.5} 45 ${y+1.5}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M55 ${y+1.5} Q59 ${y-3.5} 63 ${y+1.5}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+const openSmile=y=>`<path d="M44 ${y+5} Q50 ${y+13} 56 ${y+5} Z" fill="${INK}"/><path d="M47 ${y+9} Q50 ${y+11.5} 53 ${y+9}" fill="#ff7a9a"/>`;
+const starEye=(x,y)=>`<path d="M${x} ${y-5.5} L${x+1.5} ${y-1.5} L${x+5.5} ${y} L${x+1.5} ${y+1.5} L${x} ${y+5.5} L${x-1.5} ${y+1.5} L${x-5.5} ${y} L${x-1.5} ${y-1.5} Z" fill="${INK}"/>`;
+const FACE={
+  hi:y=>happyEyes(y)+openSmile(y)+cheek(y),                                                       // にっこり
+  nice:y=>starEye(41,y)+starEye(59,y)+openSmile(y)+cheek(y)+`<path d="M72 ${y-12} l1.5 3.5 3.5 1.5 -3.5 1.5 -1.5 3.5 -1.5 -3.5 -3.5 -1.5 3.5 -1.5z" fill="#ffbf2f"/>`, // キラキラ
+  doki:y=>faceLove(y),                                                                              // ハートの目
+  eh:y=>`<circle cx="41" cy="${y}" r="5" fill="#fff" stroke="${INK}" stroke-width="2"/><circle cx="59" cy="${y}" r="5" fill="#fff" stroke="${INK}" stroke-width="2"/><circle cx="41" cy="${y}" r="2.2" fill="${INK}"/><circle cx="59" cy="${y}" r="2.2" fill="${INK}"/>
+    <ellipse cx="50" cy="${y+9}" rx="3" ry="3.8" fill="${INK}"/><path d="M71 ${y-10} q3 5 0 7 q-3 -2 0 -7z" fill="#7cc8ff"/>`,  // びっくり（汗）
+  ouch:y=>`<path d="M37 ${y-1} Q41 ${y+2.5} 45 ${y-1}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M55 ${y-1} Q59 ${y+2.5} 63 ${y-1}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <ellipse cx="39" cy="${y+6}" rx="2.2" ry="4.5" fill="#7cc8ff"/><ellipse cx="61" cy="${y+6}" rx="2.2" ry="4.5" fill="#7cc8ff"/>
+    <path d="M44 ${y+10} Q47 ${y+7} 50 ${y+10} Q53 ${y+13} 56 ${y+10}" stroke="${INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`, // 泣き
+  grr:y=>`<path d="M37 ${y-3} L44 ${y} L37 ${y+3}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M63 ${y-3} L56 ${y} L63 ${y+3}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 ${y+10} Q50 ${y+5} 56 ${y+10}" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`+cheek(y,.3), // くやしい
+  thx:y=>happyEyes(y)+`<path d="M45.5 ${y+5} Q50 ${y+9} 54.5 ${y+5}" stroke="${INK}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`+cheek(y,.7,6.5)
+    +`${heartAt(73,y-9,3.2)} fill="#ff2f6d"/>`,                                                    // ありがと（ほっぺ＋ハート）
+  again:y=>`<path d="M35 ${y-7} L45 ${y-3.5}" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M65 ${y-7} L55 ${y-3.5}" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="41" cy="${y+.5}" r="3.4" fill="${INK}"/><circle cx="59" cy="${y+.5}" r="3.4" fill="${INK}"/><circle cx="42.2" cy="${y-.7}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-.7}" r="1.1" fill="#fff"/>
+    <path d="M43 ${y+5} H57 Q50 ${y+13} 43 ${y+5} Z" fill="${INK}"/>`,                              // やる気（キリッ）
+};
+const STAMPS=[['hi','よろしく！'],['nice','ナイス！'],['doki','ドキッ'],['eh','えっ！？'],['ouch','やられた〜'],['grr','ぐぬぬ'],['thx','ありがと'],['again','もう一回！']];
 let face=faceNormal;
 const makeArt=()=>[
  // いちごマカロン
@@ -257,6 +293,8 @@ const makeArt=()=>[
   <circle cx="50" cy="20" r="8" fill="#ff4f6d"/><circle cx="47" cy="17" r="2.2" fill="#fff" opacity=".8"/>${face(54)}`
 ];
 const ART=makeArt();face=faceLove;const ART_LOVE=makeArt();face=faceNormal;
+const STAMP_ART={};for(const[k]of STAMPS){face=FACE[k];STAMP_ART[k]=makeArt()}face=faceNormal;
+const stampSweet=(p,k,cls='')=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="color:var(${PC[p]})">${STAMP_ART[k][p]}</svg>`;
 const sweet=(p,cls='sweet',love=false)=>`<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true" style="--c:var(${PC[p]});color:var(${PC[p]})">${(love?ART_LOVE:ART)[p]}</svg>`;
 const $=id=>document.getElementById(id);
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -433,7 +471,7 @@ const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
 let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
-  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();renderRooms();
+  renderPlayers();renderStatus();renderBoard();renderTray();renderResult();renderLobby();renderRooms();renderStamps();
   if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':'おかしならべ';
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
@@ -473,7 +511,7 @@ function doAct(a,fromRect,fromServer){
         tone(1200,.08,{type:'triangle',vol:.1});tone(600,.15,{type:'triangle',vol:.08,delay:.06});
       }else{     // 一目ぼれ
         if(c)c.classList.add('stamp');
-        text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
+        text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);if(S.moves%2===0)cpuReact(a.victim,'doki');burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
   else sfx.drop(p);
@@ -542,6 +580,7 @@ function resolve(mover){
     text(mid.x,mid.y-bc.height*.18,loved?'ラブラブ！':n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
     if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
     sfx.yum(n);
+    if(!r.winners.length)[1,2].map(d=>(mover+d)%3).filter(q=>!gain[q]).slice(0,1).forEach(q=>cpuReact(q,S.moves%2?'grr':'eh'));
     if(r.winners.length){
       if(loved){render();setTimeout(()=>{if(alive())finish(r.winners)},reduced?600:1700)}else finish(r.winners);return} // 恋ボーナスで決めたら、演出を見せてから結果を出す
     render();setTimeout(endTurn,reduced?100:650);
@@ -552,6 +591,7 @@ function finish(w){
   if(played){const me=inRoom()?RV.you:S.cpu.filter(c=>!c).length===1?S.cpu.indexOf(false):-1; // 人が1人のとき（友人戦では自分）だけ勝ち負けを記録する
     gtag('event','game_end',{...gameInfo(),moves:S.moves,result:me<0?'local':w.length>1&&w.includes(me)?'draw':w.includes(me)?'win':'lose'})}
   render();sfx.win();setTimeout(()=>rain(w.map(col).concat(['#fff',cssv('--gold'),'#ff9dbd'])),200);
+  if(w.length===1){cpuReact(w[0],'nice',true);const lo=[0,1,2].filter(q=>q!==w[0]).sort((a,b)=>S.scores[a]-S.scores[b])[0];setTimeout(()=>cpuReact(lo,'ouch',true),900)}
   roomPump();
 }
 function endTurn(){
@@ -572,7 +612,7 @@ function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
   S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;setCfg();setRules();
   S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
-  played=false;S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
+  lastReact=[-99,-99,-99];played=false;S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
 }
 
@@ -642,12 +682,44 @@ function cpuTurn(){
   else doAct(best);
 }
 
+// ================= スタンプ =================
+// 自分のスタンプ：自分の席（一人で遊ぶときは人の席）のお菓子が、その表情で出る。友人戦ではサーバーを通してみんなに届く
+// CPU も、入れかえられた・揃えられた・勝った負けた でスタンプを返す（デモでは全員）。どの画面でも同じになるよう、くじは使わない
+function stampSeat(){if(inRoom())return RV&&RV.you>=0?RV.you:-1;return !S.cpu[S.turn]?S.turn:S.cpu.indexOf(false)}
+let stampsKey='',lastStamp=0;
+function renderStamps(){
+  const seat=stampSeat(),key=seat+'';if(key===stampsKey)return;stampsKey=key;
+  const el=$('stamps');if(seat<0){el.innerHTML='';return}
+  el.innerHTML=STAMPS.map(([k,t])=>`<button type="button" data-k="${k}" aria-label="スタンプ「${t}」を送る">${stampSweet(seat,k)}${t}</button>`).join('');
+}
+$('stamps').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b)sendStamp(b.dataset.k)});
+function sendStamp(k){
+  const seat=stampSeat();if(seat<0||Date.now()-lastStamp<1500)return; // 連打しない
+  lastStamp=Date.now();showStamp(seat,k);gtag('event','stamp',{k,mode:inRoom()?'room':'solo'});
+  if(inRoom())OkashiRoom.send({t:'stamp',k});
+}
+const STAMP_SOUND={hi:[660,880],nice:[784,1047,1319],doki:[880,1175],eh:[600,900],ouch:[500,350],grr:[300,260],thx:[880,988],again:[523,784]};
+function showStamp(p,k){
+  const card=$('pl'+p),t=(STAMPS.find(x=>x[0]===k)||[])[1];if(!card||!t)return;
+  card.querySelectorAll('.stampPop').forEach(x=>x.remove());
+  const d=document.createElement('div');d.className='stampPop';d.style.setProperty('--c',`var(${PC[p]})`);
+  d.innerHTML=`${stampSweet(p,k)}<span>${t}</span>`;card.appendChild(d);setTimeout(()=>d.remove(),2800);
+  (STAMP_SOUND[k]||[]).forEach((f,i)=>tone(f,.12,{type:'triangle',vol:.09,delay:i*.07}));
+}
+let lastReact=[-99,-99,-99],saidHi=false;
+const reactor=p=>DEMO||S.cpu[p];
+function cpuReact(p,k,force){
+  if(!reactor(p)||(!force&&S.moves-lastReact[p]<6))return; // 同じCPUは6手に1回まで
+  lastReact[p]=S.moves;setTimeout(()=>{if(alive())showStamp(p,k)},450);
+}
+
 // ================= 友人戦（通信は room.js） =================
 // サーバーの手は moveQ にためて、前の手のアニメーションが終わってから1つずつ再生する
 // 盤がずれたとき（つなぎ直した・自分の手がはねられた など）は、サーバーの盤に合わせる
 function onRoom(m){
   if(m.t==='open'){roomErr='';return}
   if(m.t==='close'){if(!RV)roomErr='つながりません。リンクが正しいか、通信を確かめてください';render();return}
+  if(m.t==='stamp'){if(alive())showStamp(m.p,m.k);return}
   if(m.t==='err')showToast(m.msg);
   if(!m.room)return;
   RV=m.room;if(m.move)moveQ.push(m.move);
@@ -677,7 +749,8 @@ function roomSync(force){
     if(differ&&(force||!behind)){
       roomGame=v.game;Object.assign(S,JSON.parse(JSON.stringify(v.state)));
       S.over=v.phase==='over';S.winners=v.winners.slice();S.sel=null;S.eating=[];S.passMsg='';S.busy=false;
-      if(fresh){played=false;hist=[];prevScores=S.scores.slice()}
+      if(fresh){played=false;hist=[];prevScores=S.scores.slice();lastReact=[-99,-99,-99];
+        if(!saidHi&&v.phase==='playing'&&v.state.moves===0){saidHi=true;[0,1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),300+i*500))}}
     }
   }
   render();
@@ -830,6 +903,7 @@ function start(data){
   $('size').value=S.size;$('need').value=S.need;$('target').value=S.target;setCfg();setRules();
   if(S.cells.length!==S.size*S.size){const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h]}
   prevScores=S.scores.slice();render();
+  if(!DEMO&&!inRoom()){saidHi=true;[1,2].forEach((q,i)=>setTimeout(()=>cpuReact(q,'hi',true),800+i*500))}
   if(DEMO)demoInit();
   else if(inRoom()){document.body.classList.add('room');S.level='normal';OkashiRoom.connect(ROOMID,onRoom)}
 }

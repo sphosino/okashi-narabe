@@ -2,7 +2,8 @@
 //   GET  /rooms                         部屋の一覧（人待ち・途中参加できる部屋が先）
 //   POST /rooms            {pid, name} → {id}  部屋を作る（作った人が席0に座る）
 //   GET  /rooms/<id>/ws?pid=…           WebSocket でつなぐ
-// WebSocket で受けるもの：{t:'join', name} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on}
+// WebSocket で受けるもの：{t:'join', name} / {t:'start'} / {t:'act', game, n, a} / {t:'again'} / {t:'listed', on} / {t:'stamp', k}
+// スタンプは保存せず、座っている人から来たものを、ほかの人に {t:'stamp', p, k} で配るだけ
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
 // 送るもの：{t:'room', room:<その人向けの様子>, move?:<今打たれた手>} / {t:'err', msg}
 import { DurableObject } from 'cloudflare:workers';
@@ -15,6 +16,7 @@ const ABC = 'abcdefghjkmnpqrstuvwxyz23456789'; // 読み間違えやすい文字
 const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => ABC[b % ABC.length]).join('');
 const KEEP_MS = 30 * 24 * 3600 * 1000; // 30日だれも触らなかった部屋は消す
 const lobby = (env) => env.LOBBY.get(env.LOBBY.idFromName('main'));
+const STAMPS = ['hi', 'nice', 'doki', 'eh', 'ouch', 'grr', 'thx', 'again'];
 
 export default {
   async fetch(req, env) {
@@ -81,6 +83,14 @@ export class Room extends DurableObject {
     let msg; try { msg = JSON.parse(data); } catch (e) { return; }
     const room = await this.ctx.storage.get('room');
     if (!room) return;
+    if (msg.t === 'stamp') {
+      const p = G.seatOf(room, pid), now = Date.now(), last = (this.lastStamp ??= new Map()).get(pid) || 0;
+      if (p < 0 || !STAMPS.includes(msg.k) || now - last < 1000) return; // 座っている人だけ、連打はしない
+      this.lastStamp.set(pid, now);
+      const out = JSON.stringify({ t: 'stamp', p, k: msg.k });
+      for (const w of this.sockets()) if (w !== ws) try { w.send(out); } catch (e) {}
+      return;
+    }
     let res = null;
     if (msg.t === 'join') res = G.join(room, pid, msg.name);
     else if (msg.t === 'start') res = G.start(room, pid);
