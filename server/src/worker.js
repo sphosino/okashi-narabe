@@ -9,8 +9,13 @@
 // ハートビート：ブラウザは20秒ごとに 'ping' を送り、サーバーは起こされずに 'pong' を返す。70秒来ない回線は「るす」とみなす
 // 部屋の一覧は Lobby（Durable Object 1つ）が持つ。部屋は変わるたびに Lobby に知らせる
 // 送るもの：{t:'room', room:<その人向けの様子>, move?:<今打たれた手>} / {t:'err', msg}
+// 三人将棋の部屋（kind:'shogi3'）も同じしくみ。POST /rooms に kind:'shogi3' をつけて作り、GET /rooms?kind=shogi3 で一覧を見る
+//   ちがうところ：{t:'act', game, n, a:<手>} の手は将棋の手、{t:'resign', game} で投了、rule は all / next / off、キャラはない（ルールは shogi-room.js）
 import { DurableObject } from 'cloudflare:workers';
-import * as G from './game.js';
+import * as OK from './game.js';
+import * as SH from './shogi-room.js';
+const KINDS = { okashi: OK, shogi3: SH };
+const rulesOf = (room) => KINDS[room.kind] || OK; // kind のない部屋はおかしならべ
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, GET, OPTIONS', 'access-control-allow-headers': 'content-type' };
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...CORS, 'content-type': 'application/json; charset=utf-8' } });
@@ -25,12 +30,12 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
-    if (req.method === 'GET' && url.pathname === '/rooms') return json({ rooms: await lobby(env).list() });
+    if (req.method === 'GET' && url.pathname === '/rooms') return json({ rooms: await lobby(env).list(KINDS[url.searchParams.get('kind')] ? url.searchParams.get('kind') : 'okashi') });
     if (req.method === 'POST' && url.pathname === '/rooms') {
       const body = await req.json().catch(() => ({}));
       if (!PID.test(body.pid ?? '')) return json({ error: 'pid がおかしいです' }, 400);
       const id = newId();
-      await env.ROOM.get(env.ROOM.idFromName(id)).init(id, body.pid, body.name, body.char);
+      await env.ROOM.get(env.ROOM.idFromName(id)).init(id, body.pid, body.name, body.char, KINDS[body.kind] ? body.kind : 'okashi');
       return json({ id });
     }
     const m = url.pathname.match(/^\/rooms\/([a-z0-9]+)\/ws$/);
@@ -50,9 +55,9 @@ export class Room extends DurableObject {
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
   secMs() { return Number(this.env.SEC_MS) || 1000; } // 1秒の長さ。手元で試すときだけ縮める（wrangler dev --var SEC_MS:100）
-  async init(id, pid, name, char) {
+  async init(id, pid, name, char, kind = 'okashi') {
     if (await this.ctx.storage.get('room')) throw new Error('もうある部屋です');
-    await this.save(G.newRoom(id, pid, name, char));
+    await this.save(KINDS[kind].newRoom(id, pid, name, char));
   }
   async save(room) {
     await this.ctx.storage.put('room', room);
@@ -64,7 +69,7 @@ export class Room extends DurableObject {
     await this.ctx.storage.deleteAll();
   }
   // 部屋の一覧に今の様子を知らせる（失敗しても対戦は止めない）
-  async report(room) { try { await lobby(this.env).update(G.summary(room, this.online())); } catch (e) {} }
+  async report(room) { try { await lobby(this.env).update(rulesOf(room).summary(room, this.online())); } catch (e) {} }
 
   // つながっている回線。ping が70秒来ていないものは切れたとみなして閉じる
   sockets() {
@@ -81,7 +86,7 @@ export class Room extends DurableObject {
   broadcast(room, move, extra) {
     const on = this.online();
     for (const ws of this.sockets()) {
-      const v = G.view(room, this.ctx.getTags(ws)[0], on, this.secMs());
+      const v = rulesOf(room).view(room, this.ctx.getTags(ws)[0], on, this.secMs());
       try { ws.send(JSON.stringify({ t: 'room', room: v, move, ...extra })); } catch (e) {}
     }
   }
@@ -102,6 +107,7 @@ export class Room extends DurableObject {
     let msg; try { msg = JSON.parse(data); } catch (e) { return; }
     const room = await this.ctx.storage.get('room');
     if (!room) return;
+    const G = rulesOf(room);
     if (msg.t === 'timeout') {
       const res = G.timeout(room, pid, this.online(), Date.now(), this.secMs());
       if (typeof res === 'string' || !res) return;
@@ -133,6 +139,7 @@ export class Room extends DurableObject {
     else if (msg.t === 'listed') res = G.setListed(room, pid, msg.on);
     else if (msg.t === 'limit') res = G.setLimit(room, pid, msg.sec);
     else if (msg.t === 'rule') res = G.setRule(room, pid, msg.rule);
+    else if (msg.t === 'resign' && G.resign) res = G.resign(room, pid, msg.game);
     else return;
     if (typeof res === 'string') { // うまくいかなかった：理由と、今の正しい様子を本人に返す
       ws.send(JSON.stringify({ t: 'err', msg: res, room: G.view(room, pid, this.online()) }));
@@ -145,7 +152,7 @@ export class Room extends DurableObject {
   async left(ws) {
     const room = await this.ctx.storage.get('room'); if (!room) return;
     const pid = this.ctx.getTags(ws)[0];
-    if (G.seatOf(room, pid) >= 0 && !this.online().has(pid)) { G.markSeen(room, pid, Date.now()); await this.ctx.storage.put('room', room); }
+    if (OK.seatOf(room, pid) >= 0 && !this.online().has(pid)) { OK.markSeen(room, pid, Date.now()); await this.ctx.storage.put('room', room); }
     this.broadcast(room); await this.report(room);
   }
   async webSocketClose(ws) { await this.left(ws); }
@@ -157,10 +164,11 @@ const LOBBY_SHOW = 30, DROP_MS = 2 * 24 * 3600 * 1000;
 export class Lobby extends DurableObject {
   async update(info) { await this.ctx.storage.put('r:' + info.id, info); }
   async remove(id) { await this.ctx.storage.delete('r:' + id); }
-  async list() {
+  async list(kind = 'okashi') {
     const now = Date.now(), out = [], old = [];
     for (const [k, r] of await this.ctx.storage.list({ prefix: 'r:' })) {
       if (now - r.updated > DROP_MS) { old.push(k); continue; }
+      if ((r.kind || 'okashi') !== kind) continue;
       const here = r.seats.some((s) => s && s.online);
       // 誰かがいる部屋だけ見せる（誰もいない部屋に入っても、戻ってくるまで何も起きないので）
       if (!r.listed || !here) continue;
