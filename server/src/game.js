@@ -1,7 +1,7 @@
 // 友人戦の部屋のルール。通信のことは何も知らない（worker.js から呼ぶ。node test.js でも試せる）
 //   部屋 ：{id, phase, cfg, hand, seats, game, start, state, winners, wins, votes, listed}
 //          listed：部屋の一覧に出すか（部屋を作った人が決める。ふだんは出す）
-//          limit：1手の持ち時間（秒）。rule：ルール（normal ふつう / quick さくっと / deep じっくり）。どちらも部屋を作った人が集まり中に決める
+//          limit：1手の持ち時間（秒）。rule：ルール（normal ふつう / quick さくっと / deep じっくり / party わいわい）。どちらも部屋を作った人が集まり中に決める
 //          turnAt：今の番が始まった時刻、seen：{pid: 最後にいなくなった時刻}、left：この試合で退室扱いになった人の pid
 //          miss：{pid: 続けて時間切れになった回数}、auto：{game, n} この手は時間切れで CPU が代わりに打つ
 //          phase は 'lobby'（集まり中）/ 'playing'（対戦中）/ 'over'（決着）
@@ -19,6 +19,7 @@ export const RULES = {
   normal: { cfg: CFG, hand: HAND },                                                              // 6×6・4つ並べ・手持ち6・3点
   quick: { cfg: { ...CFG, target: 2 }, hand: 7 },                                                 // 手持ち7・2点：短く、はじめての人も勝ちやすい
   deep: { cfg: { ...CFG, size: 7 }, hand: R.handFor(7, 4, 'auto') },                              // 7×7：上手い人どうしでも決着がつきやすい
+  party: { cfg: { ...CFG, party: true }, hand: HAND },                                            // わいわい：ふつう＋アイテム
 };
 export function setRule(room, pid, rule) {
   if (seatOf(room, pid) !== 0) return '部屋を作った人だけが決められます';
@@ -114,7 +115,7 @@ export function timeout(room, pid, online, now, ms = 1000) {
 function startGame(room) {
   room.game++;
   room.turnAt = Date.now(); room.left = [];
-  room.state = R.newState(room.cfg, room.hand, room.start);
+  room.state = R.newState(room.cfg, room.hand, room.start, Math.floor(Math.random() * 2 ** 31)); // わいわいのアイテム箱の種
   room.chars = fillChars(room.seats);
   room.phase = 'playing'; room.winners = []; room.votes = [];
 }
@@ -126,7 +127,7 @@ export function start(room, pid) {
   return null;
 }
 
-const same = (x, a) => x.t === a.t && x.to === a.to && (x.from ?? null) === (a.from ?? null);
+const same = (x, a) => x.t === a.t && (x.to ?? null) === (a.to ?? null) && (x.from ?? null) === (a.from ?? null) && (x.k ?? null) === (a.k ?? null);
 // 1手。n は「何手目か」（state.moves）で、ずれていたら受けつけない（二重送信やCPUの手の重なりよけ）
 // 人の席はその人だけ、CPU の席と時間切れの手は座っている人なら誰でも（ブラウザが考えた手を送ってくる）打てる
 export function act(room, pid, game, n, a) {
@@ -139,13 +140,13 @@ export function act(room, pid, game, n, a) {
   const legal = R.actions(room.cfg, st, p).find((x) => same(x, a));
   if (!legal) return 'その手は打てません';
   const r = R.step(room.cfg, st, legal);
-  room.state = r.state; room.turnAt = Date.now();
+  room.state = r.state; if (legal.t !== 'item') room.turnAt = Date.now(); // アイテムは番の途中なので、持ち時間は続ける
   if (!byCpu) (room.miss ??= {})[pid] = 0; // 自分で打てたら、時間切れの回数はリセット
   if (r.over) {
     room.phase = 'over'; room.winners = r.winners;
     if (r.winners.length === 1) room.wins[r.winners[0]]++;
   }
-  return { game, n, p, a: { t: legal.t, from: legal.from ?? null, to: legal.to } };
+  return { game, n, p, a: { t: legal.t, from: legal.from ?? null, to: legal.to ?? null, ...(legal.k ? { k: legal.k } : {}) } };
 }
 
 // 部屋の一覧に出すかどうか（部屋を作った人だけ）

@@ -4,6 +4,29 @@
 (function(root){
 'use strict';
 const R=typeof module==='object'&&module.exports?require('./rules.js'):root.Okashi;
+const moves=(cfg,st,p)=>R.actions(cfg,st,p).filter(a=>a.t!=='item'); // 置く・動かす・入れかえ（アイテムは itemPlan で別に考える）
+
+// わいわい：持っているアイテムの使いどき。使うならその手、まだ使わないなら null
+//   いぬ：相手の「あと1つ」の並びのお菓子をくわえていく / 失恋の雨：相手の恋モードが2つ以上 / はと：手持ちが2つ以下
+//   キューピッドの矢：自分のお菓子が2つ以上あれば、仲間がいちばん多いお菓子を恋モードに
+function itemPlan(cfg,st,p){
+  const k=st.items&&st.items[p];if(!k)return null;
+  const T=R.itemTargets(cfg,st,k,p);if(!T.length)return null;
+  if(k==='dove')return st.hands[p]<=2?{t:'item',k,to:null}:null;
+  if(k==='rain')return st.fixed.filter(i=>st.cells[i]!==p).length>=2?{t:'item',k,to:null}:null;
+  const {NB,WIN}=R.geo(cfg);
+  if(k==='dog'){
+    for(const w of WIN){const vs=w.map(i=>st.cells[i]),q=vs.find(v=>v!==null&&v!==p);if(q===undefined)continue;
+      if(vs.filter(v=>v===q).length===cfg.need-1&&vs.filter(v=>v===null).length===1)return{t:'item',k,to:w.find(i=>st.cells[i]===q)}}
+    return null;
+  }
+  if(k==='arrow'){
+    if(st.cells.filter(v=>v===p).length<2)return null;
+    let best=null,bv=-1;for(const i of T){const v=NB[i].filter(j=>st.cells[j]===p).length;if(v>bv){bv=v;best=i}}
+    return{t:'item',k,to:best};
+  }
+  return null;
+}
 
 // qが次の一手で揃えられる並びの数。fixed は恋モードのマスの Set
 function threats(cfg,c,q,hands,fixed){
@@ -43,6 +66,7 @@ function evalNormal(cfg,st,a,p){
   s-=threats(cfg,after,nx2,hands,fx)*(st.scores[nx2]+reach>=cfg.target?40:14);
   if(a.t==='swap'&&!e.lines.some(l=>l.p===p))s-=3;
   if(a.t==='place')s+=2;
+  if(cfg.party&&st.box&&a.to===st.box.at)s+=12; // わいわい：アイテム箱を拾いにいく（「あと1つ」を作るより少し低い）
   const n=cfg.size,mid=(n-1)/2;s-=(Math.abs(Math.floor(a.to/n)-mid)+Math.abs(a.to%n-mid))*.6;
   return s+Math.random()*4;
 }
@@ -55,6 +79,7 @@ function evalEasy(cfg,st,a,p){
   for(const q of[0,1,2])s+=(q===p?100:-100)*gain[q];
   for(const q of[(p+1)%3,(p+2)%3])if(openSpots(cfg,st.cells,q).has(a.to))s+=30;
   s+=openSpots(cfg,c,p).size*10+R.geo(cfg).NB[a.to].filter(j=>c[j]===p).length*2;
+  if(cfg.party&&st.box&&a.to===st.box.at)s+=8; // わいわい：アイテム箱を拾いにいく（「あと1つ」を作るより低い）
   return s+Math.random()*3;
 }
 // つよい：2手読み。よさそうな手を10個にしぼり、それぞれに次の人の一番いい返しを当てて、その後の盤で選ぶ
@@ -68,11 +93,11 @@ function boardValue(cfg,T,p){ // 次の人が打ち終わった盤を、pから�
   return v;
 }
 function pickHard(cfg,st,p){
-  const cand=R.actions(cfg,st,p).map(a=>({a,v:evalNormal(cfg,st,a,p)})).sort((x,y)=>y.v-x.v).slice(0,10);
+  const cand=moves(cfg,st,p).map(a=>({a,v:evalNormal(cfg,st,a,p)})).sort((x,y)=>y.v-x.v).slice(0,10);
   let best=cand[0].a,bs=-Infinity;
   for(const {a} of cand){
     const S1=applyOn(cfg,st,a,p).state;if(S1.scores[p]>=cfg.target)return a;
-    const nx=(p+1)%3,acts=R.actions(cfg,S1,nx);let b=null,bv=-Infinity;
+    const nx=(p+1)%3,acts=moves(cfg,S1,nx);let b=null,bv=-Infinity;
     for(const x of acts){const v=evalNormal(cfg,S1,x,nx);if(v>bv){bv=v;b=x}}
     const v=boardValue(cfg,b?applyOn(cfg,S1,b,nx).state:S1,p)+Math.random()*2;
     if(v>bs){bs=v;best=a}
@@ -80,14 +105,15 @@ function pickHard(cfg,st,p){
   return best;
 }
 // p の打つ手を選ぶ。打てる手がなければ null
-function choose(cfg,st,p,level='normal'){
-  const acts=R.actions(cfg,st,p);if(!acts.length)return null;
+function choose(cfg,st,p,level='normal',opt={}){
+  if(cfg.party&&!opt.noItem){const it=itemPlan(cfg,st,p);if(it)return it} // アイテムは、ふつうの1手の前に使う
+  const acts=moves(cfg,st,p);if(!acts.length)return null;
   if(level==='hard')return pickHard(cfg,st,p);
   const f=level==='easy'?evalEasy:evalNormal;let best=acts[0],bs=-Infinity;
   for(const a of acts){const s=f(cfg,st,a,p);if(s>bs){bs=s;best=a}}
   return best;
 }
 
-const api={choose,evalNormal,evalEasy,threats,buildup,openSpots};
+const api={choose,itemPlan,evalNormal,evalEasy,threats,buildup,openSpots};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.OkashiCPU=api;
 })(this);

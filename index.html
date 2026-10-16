@@ -158,6 +158,15 @@ body.demo .foot{display:none}
 /* 広告用デモ（?demo）：録画しやすいように、操作まわりを隠す */
 body.demo .controls,body.demo .rules,body.demo .chip,body.demo #friendsR,body.demo .friends{display:none}
 .friends{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+/* わいわい：盤に落ちてくるアイテム箱、名前カードの持っているアイテム、アイテムを使えるマス */
+.cell .box{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(18px,5vw,30px);animation:boxBob 1.4s ease-in-out infinite;pointer-events:none;filter:drop-shadow(0 2px 0 #0003)}
+@keyframes boxBob{50%{transform:translateY(-3px) rotate(-6deg)}}
+.itembtn{font:700 .72rem var(--body);color:var(--ink);background:#fff1c9;border:2px solid var(--gold);border-radius:999px;padding:1px 8px;cursor:pointer;white-space:nowrap}
+.itembtn:disabled{cursor:default;opacity:.75;border-color:#f3dca0}
+.itembtn.ready{animation:coachPulse .9s ease-in-out infinite}
+.itembtn.sel{background:var(--gold)}
+.cell.itemtgt{box-shadow:inset 0 0 0 3px var(--gold)}
+.cell.itemtgt::before{content:"";width:26%;height:26%;border-radius:50%;background:#ffe08acc;animation:pulse 1s infinite}
 /* キャラえらび：名前カードのお菓子を押すと出る。部屋のカードにも同じ並び */
 .picker{position:absolute;z-index:30;background:var(--card);border-radius:16px;padding:10px;box-shadow:0 6px 0 #f0b9c9,0 16px 30px -10px #5b2f2066;animation:pop .3s cubic-bezier(.2,1.6,.4,1)}
 .picker p{margin:0 0 6px;font-weight:700;font-size:.8rem;color:var(--muted);text-align:center}
@@ -265,7 +274,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <label for="level">CPU
       <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
     </label>
-    <span class="plabel">ルール</span><div class="presets" role="group" aria-label="ルール"><button type="button" data-p="normal">ふつう</button><button type="button" data-p="quick">さくっと</button><button type="button" data-p="deep">じっくり</button></div>
+    <span class="plabel">ルール</span><div class="presets" role="group" aria-label="ルール"><button type="button" data-p="normal">ふつう</button><button type="button" data-p="quick">さくっと</button><button type="button" data-p="deep">じっくり</button><button type="button" data-p="party">わいわい</button></div>
     <details class="custom"><summary>自分で決める</summary><div class="customrow">
     <label for="size">盤
       <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option><option value="7">7×7</option></select>
@@ -282,6 +291,9 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <label for="target">目標
       <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
     </label>
+    <label for="party">アイテム
+      <select id="party"><option value="off" selected>なし</option><option value="on">あり</option></select>
+    </label>
     </div></details>
     <span class="spacer"></span>
     <button class="btn" id="sound" type="button" aria-pressed="true">音 ON</button>
@@ -294,6 +306,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
     <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
     <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえられた<b>相手のお菓子は一目ぼれして「恋モード」</b>（目がハート）になります。</li>
     <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえられた相手のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
+    <li id="ruleParty" hidden><b>わいわい</b>：ときどき盤に<b>🎁 アイテム箱</b>が落ちてくる。そのマスにお菓子を置く・動かすと拾える（持てるのは1つ）。自分の番に、ふつうの1手の<b>前に</b>名前カードのボタンで使える。🏹 キューピッドの矢（自分のお菓子を恋モードに）・🐕 いぬ（相手のお菓子を1つ、持ち主の手持ちに返す）・🌧 失恋の雨（恋モードを全部とく）・🕊 はと（手持ち＋1）。</li>
     <li id="ruleLove"><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
     <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
@@ -458,11 +471,15 @@ function centerOf(i){const r=rectOf(i);return r?{x:r.left+r.width/2,y:r.top+r.he
 
 // ================= ルール（中身は rules.js） =================
 let C={size:6,need:4,target:3,loveBonus:true,maxMoves:MAXMOVES}; // 今のゲームのルール設定
-function setCfg(){C={size:S.size,need:S.need,target:S.target,loveBonus:S.loveBonus,maxMoves:MAXMOVES}}
+function setCfg(){C={size:S.size,need:S.need,target:S.target,loveBonus:S.loveBonus,maxMoves:MAXMOVES};if(S.party)C.party=true}
+// わいわいのアイテム。how は対象を選ぶときのひとこと（対象のいらないアイテムは、押すとすぐ使う）
+const ITEM_INFO={arrow:{e:'🏹',n:'キューピッドの矢',how:'恋モードにする自分のお菓子を選んでね'},dog:{e:'🐕',n:'いぬ',how:'くわえていく相手のお菓子を選んでね'},
+  rain:{e:'🌧',n:'失恋の雨',how:''},dove:{e:'🕊',n:'はと',how:''}};
 const N=()=>S.size;
 const isFixed=i=>R.isLove(S,i);
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
+  if(sel.kind==='item'){for(const i of R.itemTargets(C,S,sel.k,p))if(i!==null)t.set(i,'item');return t}
   if(TUT){const x=tutExpect();if(!x||!tutSrcOk(sel))return t;t.set(x.to,x.t);return t} // あそびかた：決めた1手だけ
   if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
   else for(const j of R.geo(C).NB[sel.i]){if(S.cells[j]===null)t.set(j,'move');else if(R.canSwap(S,sel.i,j,p))t.set(j,'swap')}
@@ -478,7 +495,7 @@ function renderPlayers(){
       <div class="jar" id="jar${i}" aria-label="点数"></div>
       <div class="ph" id="ph${i}"></div>
       <i class="tm" id="tm${i}" aria-hidden="true"></i>
-      <div class="meta"><span id="hd${i}"></span><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
+      <div class="meta"><span id="hd${i}"></span><button type="button" class="itembtn" id="it${i}" hidden></button><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
     S.names.forEach((_,i)=>{const el=$('name'+i);el.value=S.names[i];
       el.addEventListener('input',()=>{S.names[i]=el.value||chName(i);renderStatus()});
       $('who'+i).addEventListener('click',()=>{S.cpu[i]=!S.cpu[i];S.sel=null;render()});
@@ -490,6 +507,7 @@ function renderPlayers(){
     for(let k=0;k<S.target;k++)h+=`<i class="${k<S.scores[i]?'f':''}${k<S.scores[i]&&k>=prevScores[i]?' new':''}"></i>`;
     jar.innerHTML=h;jar.setAttribute('aria-label',`${S.scores[i]}点 / ${S.target}点`);
     $('hd'+i).textContent=`${S.wins[i]}勝`;
+    renderItem(i);
     renderHand(i);
     const w=$('who'+i);
     if(inRoom()){const s=RV&&RV.seats[i],el=$('name'+i);el.disabled=true;if(el.value!==S.names[i])el.value=S.names[i];
@@ -511,6 +529,7 @@ function renderStatus(){
   else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn],l=leftSec();
     st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです'}${l!==null?`（残り${l}秒）`:''}</span>`}
   else if(inRoom()&&leftSec()!==null){st.innerHTML=`${nm(S.turn)} の番！<span class="sub">残り${leftSec()}秒</span>`}
+  else if(S.sel&&S.sel.kind==='item')st.innerHTML=`${ITEM_INFO[S.sel.k].e} ${ITEM_INFO[S.sel.k].how}<span class="sub">ほかの所を押すとやめる</span>`;
   else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
@@ -531,12 +550,29 @@ function renderBoard(){
       if(S.eating.includes(i))c.classList.add('glow');
     }
     const t=tg.get(i);
-    if(t==='swap'){c.classList.add('swaptgt');label+='（入れかえ）'}else if(t)c.classList.add('tgt');
+    if(C.party&&S.box&&S.box.at===i&&v===null){c.insertAdjacentHTML('beforeend','<div class="box" aria-hidden="true">🎁</div>');label+='（アイテム箱）'}
+    if(t==='swap'){c.classList.add('swaptgt');label+='（入れかえ）'}else if(t==='item'){c.classList.add('itemtgt');label+='（アイテムを使う）'}else if(t)c.classList.add('tgt');
     if(human&&(t||(v===S.turn))){c.tabIndex=0;c.setAttribute('aria-label',label+(t?' に動かす':' を選ぶ'))}else c.setAttribute('aria-label',label);
     b.appendChild(c);
   });
   $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
 }
+// 名前カードの、持っているアイテム。自分の番なら押して使う（対象のいるアイテムは、押してから盤のマスを選ぶ）
+function renderItem(i){
+  const b=$('it'+i),k=C.party&&S.items?S.items[i]:null;
+  if(!k){b.hidden=true;return}
+  const info=ITEM_INFO[k],mine=!DEMO&&!S.over&&!S.busy&&S.turn===i&&humanTurn()&&!TUT,can=mine&&R.itemTargets(C,S,k,i).length>0;
+  b.hidden=false;b.disabled=!can;b.textContent=`${info.e} ${info.n}`;b.title=info.n;
+  b.classList.toggle('ready',can&&!(S.sel&&S.sel.kind==='item'));b.classList.toggle('sel',!!(S.sel&&S.sel.kind==='item'&&mine));
+  b.setAttribute('aria-label',can?`${info.n}を使う`:`${info.n}を持っている`);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('.itembtn');if(!b||b.disabled)return;
+  const i=+b.id.slice(2),k=S.items&&S.items[i];if(!k||!canAct()||S.turn!==i)return;
+  if(S.sel&&S.sel.kind==='item'){S.sel=null;render();return} // もう一度押すとやめる
+  const T=R.itemTargets(C,S,k,i);if(!T.length)return;
+  if(T[0]===null){doAct({t:'item',k,to:null});return} // 対象のいらないアイテムは、すぐ使う
+  S.sel={kind:'item',k};sfx.pick();render();
+});
 // 名前カードの手持ち。中身が変わったときだけ描きなおす（つまんでいる最中に消えないように）
 const handKey=[];
 function renderHand(i){
@@ -573,19 +609,23 @@ setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render
 
 // ================= 手番の処理 =================
 let played=false; // この試合で人が1手でも打ったか（計測用）
-function gameInfo(){return {mode:inRoom()?'room':'solo',humans:S.cpu.filter(c=>!c).length,level:S.level,board_size:S.size,hand:S.handSel,love_bonus:S.loveBonus}}
-const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves}));
+function gameInfo(){return {mode:inRoom()?'room':'solo',humans:S.cpu.filter(c=>!c).length,level:S.level,board_size:S.size,hand:S.handSel,love_bonus:S.loveBonus,party:!!C.party}}
+const snap=()=>JSON.parse(JSON.stringify({cells:S.cells,hands:S.hands,scores:S.scores,fixed:S.fixed,turn:S.turn,moves:S.moves,...(C.party?{items:S.items,box:S.box,seed:S.seed}:{})}));
 function doAct(a,fromRect,fromServer){
   if(S.over||S.busy)return;
   const p=S.turn;
-  if(inRoom()&&!fromServer)OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:a.t,from:a.from??null,to:a.to}});
+  if(inRoom()&&!fromServer)OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:a.t,from:a.from??null,to:a.to??null,...(a.k?{k:a.k}:{})}});
   hist.push(snap());
   if(!played&&(inRoom()?!fromServer:!S.cpu[p])){played=true;gtag('event','game_start',gameInfo())}
+  if(a.t==='item'){ // アイテム：使ったら、同じ人がそのままふつうの1手を打つ
+    const r=R.act(C,S,a,p);Object.assign(S,r.state);S.sel=null;S.busy=true;S.passMsg='';render();itemFx(a,r,p);
+    setTimeout(()=>{if(!alive())return;S.busy=false;render();roomPump()},reduced?250:1000);return}
   const srcRects={};if(a.from!=null)srcRects.from=rectOf(a.from);if(a.t==='swap')srcRects.to=rectOf(a.to);
   const r=R.act(C,S,a,p);Object.assign(S,r.state);
   S.lastLove=r.loveTo;a.victim=r.victim;a.wake=r.wake; // 入れかえアニメで使う
   S.sel=null;S.busy=true;S.passMsg='';
   render();
+  if(r.picked){const cr=$('pl'+p).getBoundingClientRect(),info=ITEM_INFO[r.picked];setTimeout(()=>{text(cr.left+cr.width/2,cr.bottom-14,`${info.e} ${info.n} ゲット！`,col(p),20,80);[988,1319].forEach((f,k)=>tone(f,.12,{type:'triangle',vol:.1,delay:k*.08}))},300)}
   // 動いた駒をなめらかに運ぶ
   const fly=(i,from)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
     el.animate([{transform:`translate(${from.left+from.width/2-(to.left+to.width/2)}px,${from.top+from.height/2-(to.top+to.height/2)}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:280,easing:'cubic-bezier(.3,1.35,.5,1)'})};
@@ -653,6 +693,15 @@ function swapAnim(a,p,dropRect,src){
   cleanup(dur);
   return dur;
 }
+// アイテムを使ったときの演出
+function itemFx(a,r,p){
+  const info=ITEM_INFO[a.k],pt=a.to!=null?centerOf(a.to):null,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height*.35};
+  if(a.k==='arrow'){text(pt.x,pt.y-30,'キューピッドの矢！',cssv('--p0'),22,80);burst(pt.x,pt.y,{n:22,speed:4,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});[1047,1319,1568].forEach((f,k)=>tone(f,.14,{type:'sine',vol:.1,delay:k*.07}))}
+  else if(a.k==='dog'){text(pt.x,pt.y-30,'わんっ！',col(p),26,80);burst(pt.x,pt.y,{n:16,speed:4,colors:['#c58b5a','#fff',col(r.victim)],kinds:['dot','star']});tone(520,.1,{type:'square',vol:.08});tone(420,.12,{type:'square',vol:.08,delay:.12})}
+  else if(a.k==='rain'){rain(['#7cc8ff','#bfe3ff','#ffffff'],90);text(mid.x,mid.y,'失恋の雨…',cssv('--p1'),30,90);tone(600,.3,{type:'sine',vol:.08,to:300})}
+  else if(a.k==='dove'){const cr=$('pl'+p).getBoundingClientRect();text(cr.left+cr.width/2,cr.bottom-14,'ポッポー！ 手持ち＋1',col(p),20,80);tone(880,.1,{type:'triangle',vol:.1});tone(1175,.12,{type:'triangle',vol:.1,delay:.1})}
+  showStamp(p,a.k==='rain'?'eh':a.k==='dog'?'nice':'hi');
+}
 function trayRect(){const ph=$('ph'+S.turn);return ph?(ph.querySelector('svg')||ph).getBoundingClientRect():$('board').getBoundingClientRect()} // 置くお菓子が飛び出す所
 function resolve(mover){
   if(!alive())return;
@@ -692,7 +741,7 @@ function endTurn(){
   if(TUT){S.busy=false;tutDone();return} // あそびかた：番は進めず、説明の続きへ
   const r=R.next(C,S);
   if(r.over){finish(r.winners);return} // 時間切れ・誰も動けない：その時点の点数で決着
-  S.turn=r.state.turn;S.busy=false;
+  S.turn=r.state.turn;if(C.party)S.box=r.state.box;S.busy=false; // わいわい：次の番に落ちてくるアイテム箱も受けとる
   if(r.skipped.length){S.passMsg=`${r.skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
   render();roomPump();
 }
@@ -704,8 +753,9 @@ function undo(){
 }
 function newGame(advance){
   if(advance)S.start=S.over&&S.winners.length===1?(S.winners[0]+1)%3:(S.start+1)%3;
-  S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;setCfg();setRules();
+  S.loveBonus=$('love').value==='on';S.size=+$('size').value;S.need=+$('need').value;S.target=+$('target').value;S.party=$('party').value==='on';setCfg();setRules();
   S.handSel=$('handcount').value;const h=handSize();S.cells=Array(S.size*S.size).fill(null);S.hands=[h,h,h];S.scores=[0,0,0];S.fixed=[];
+  if(C.party){S.items=[null,null,null];S.box=null;S.seed=Math.floor(Math.random()*2**31)}else{delete S.items;delete S.box;delete S.seed}
   lastReact=[-99,-99,-99];played=false;S.turn=S.start;S.over=false;S.winners=[];S.moves=0;S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];prevScores=[0,0,0];
   render();
 }
@@ -722,11 +772,14 @@ function selFromEl(el){
 }
 function trySelTarget(i,fromRect){
   const t=targetsFor(S.sel).get(i);if(!t)return false;
-  doAct(t==='place'?{t:'place',to:i}:{t,from:S.sel.i,to:i},fromRect);return true;
+  doAct(t==='place'?{t:'place',to:i}:t==='item'?{t:'item',k:S.sel.k,to:i}:{t,from:S.sel.i,to:i},fromRect);return true;
 }
 function sameSel(a,b){return a&&b&&a.kind===b.kind&&(a.kind==='hand'||a.i===b.i)}
 document.addEventListener('pointerdown',e=>{
   ac();if(!canAct())return;
+  if(S.sel&&S.sel.kind==='item'){ // アイテムの対象を選んでいるところ
+    if(e.target.closest('.itembtn'))return;const c=e.target.closest('.cell');
+    if(!(c&&trySelTarget(+c.dataset.i))){S.sel=null;render()}return}
   const sel=selFromEl(e.target);
   if(sel){drag={sel,x:e.clientX,y:e.clientY,moved:false,ghost:null,src:e.target.closest('.pc,.h'),wasSel:sameSel(S.sel,sel)};e.preventDefault();return}
   // 選択中に空きマス・入れかえ先をタップ
@@ -867,7 +920,7 @@ function tutAsk(){ // はじめて開いたとき
 function tutStart(where){
   closePicker();gtag('event','tutorial_start',{where});
   TUT={i:0,phase:'do',saved:{cpu:S.cpu.slice()}};document.body.classList.add('tut');
-  S.size=6;S.need=4;S.target=3;S.loveBonus=true;setCfg();setRules();S.cpu=[false,true,true]; // 手順の中の点は多くて2点なので、勝負はつかない
+  S.size=6;S.need=4;S.target=3;S.loveBonus=true;S.party=false;delete S.items;delete S.box;setCfg();setRules();S.cpu=[false,true,true]; // 手順の中の点は多くて2点なので、勝負はつかない
   tutStep();
 }
 function tutStep(){
@@ -965,8 +1018,8 @@ function roomNames(){
 }
 function roomSync(force){
   const v=RV;roomNames();
-  if(S.size!==v.cfg.size||S.need!==v.cfg.need||S.target!==v.cfg.target||S.loveBonus!==v.cfg.loveBonus){
-    S.size=v.cfg.size;S.need=v.cfg.need;S.target=v.cfg.target;S.loveBonus=v.cfg.loveBonus;setCfg();setRules();$('board').innerHTML=''}
+  if(S.size!==v.cfg.size||S.need!==v.cfg.need||S.target!==v.cfg.target||S.loveBonus!==v.cfg.loveBonus||!!S.party!==!!v.cfg.party){
+    S.size=v.cfg.size;S.need=v.cfg.need;S.target=v.cfg.target;S.loveBonus=v.cfg.loveBonus;S.party=!!v.cfg.party;setCfg();setRules();$('board').innerHTML=''}
   if(!v.state){const h=v.hand;Object.assign(S,{cells:Array(S.size*S.size).fill(null),hands:[h,h,h],scores:[0,0,0],fixed:[],turn:0,moves:0,over:false,winners:[]})}
   else{
     const fresh=v.game!==roomGame,behind=!fresh&&v.state.moves<S.moves; // 自分の手がまだサーバーから返ってきていない
@@ -1003,9 +1056,9 @@ $('leave').addEventListener('click',()=>{
 function roomCpu(){ // CPU の手は、座っている人のうち係の人（cpuDriver）だけが考えて送る
   if(!RV||RV.phase!=='playing'||RV.you<0||RV.cpuDriver!==RV.you||RV.game!==roomGame||RV.state.moves!==S.moves)return;
   const key=roomGame+':'+S.moves;if(cpuSent===key&&Date.now()-cpuSentAt<5000)return; // 同じ手を何度も送らない
-  const best=CPU.choose(C,S,S.turn,'normal');if(!best)return;
+  const best=CPU.choose(C,S,S.turn,'normal',{noItem:!!RV.auto});if(!best)return; // 時間切れの代打ちはアイテムを使わない（使っても番が進まないので）
   cpuSent=key;cpuSentAt=Date.now();
-  OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:best.t,from:best.from??null,to:best.to}});
+  OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:best.t,from:best.from??null,to:best.to??null,...(best.k?{k:best.k}:{})}});
 }
 function roomAgainHTML(){
   const n=RV.seats.filter(s=>!s.empty).length,me=RV.seats[RV.you];
@@ -1148,17 +1201,18 @@ function showToast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clea
 // ルール3つ（サーバーの RULES と同じ中身）。細かい設定がどれとも同じでなければ「自分で決めたルール」
 const PRESETS={normal:{n:'ふつう',size:6,need:4,hand:'auto',target:3,love:'on',note:'6×6・4つ並べ・手持ち6・3点先取'},
   quick:{n:'さくっと',size:6,need:4,hand:'7',target:2,love:'on',note:'手持ち7・2点先取。短く、はじめての人も勝ちやすい'},
-  deep:{n:'じっくり',size:7,need:4,hand:'auto',target:3,love:'on',note:'7×7・3点先取。上手い人どうしでも決着がつきやすい'}};
-function presetNow(){return Object.keys(PRESETS).find(k=>{const p=PRESETS[k];return +$('size').value===p.size&&+$('need').value===p.need&&$('handcount').value===p.hand&&+$('target').value===p.target&&$('love').value===p.love})||null}
+  deep:{n:'じっくり',size:7,need:4,hand:'auto',target:3,love:'on',note:'7×7・3点先取。上手い人どうしでも決着がつきやすい'},
+  party:{n:'わいわい',size:6,need:4,hand:'auto',target:3,love:'on',party:'on',note:'ふつう＋アイテム。🎁を拾って、ふつうの1手の前に使える'}};
+function presetNow(){return Object.keys(PRESETS).find(k=>{const p=PRESETS[k];return +$('size').value===p.size&&+$('need').value===p.need&&$('handcount').value===p.hand&&+$('target').value===p.target&&$('love').value===p.love&&$('party').value===(p.party||'off')})||null}
 function markPreset(){const k=presetNow();document.querySelectorAll('.presets [data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===k));
   let n=document.querySelector('.controls .rulenote');if(!n){n=document.createElement('p');n.className='rulenote';document.querySelector('.presets').after(n)}
   n.textContent=k?PRESETS[k].note:'自分で決めたルール'}
 document.querySelector('.controls .presets').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=PRESETS[b.dataset.p];
-  $('size').value=p.size;$('need').value=p.need;$('handcount').value=p.hand;$('target').value=p.target;$('love').value=p.love;
+  $('size').value=p.size;$('need').value=p.need;$('handcount').value=p.hand;$('target').value=p.target;$('love').value=p.love;$('party').value=p.party||'off';
   gtag('event','rule_pick',{rule:b.dataset.p});newGame(false);markPreset()});
-['size','need','handcount','target','love'].forEach(id=>$(id).addEventListener('change',markPreset));
-function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus}
-['size','need','target','handcount','love'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
+['size','need','handcount','target','love','party'].forEach(id=>$(id).addEventListener('change',markPreset));
+function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus;$('ruleParty').hidden=!S.party}
+['size','need','target','handcount','love','party'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
 $('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
 function start(data){

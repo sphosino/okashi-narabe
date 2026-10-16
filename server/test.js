@@ -56,6 +56,19 @@ const on = new Set([A, B]);
   assert.equal(G.setRule(r, A, 'quick'), '試合が始まったら変えられません');
   const q = G.newRoom('vvvv2345', A, 'a'); G.setRule(q, A, 'quick'); G.start(q, A); assert.deepEqual(q.state.hands, [7, 7, 7]); assert.equal(q.cfg.target, 2); }
 
+// わいわい：アイテム箱の種が部屋ごとに入り、部屋の結果が rules.js をそのまま回した結果と一致する（アイテムも使う）
+{ const r = G.newRoom('pppp2345', A, 'a'); G.join(r, B, 'b'); assert.equal(G.setRule(r, A, 'party'), null); G.start(r, A);
+  assert.ok(Array.isArray(r.state.items) && typeof r.state.seed === 'number');
+  let st = JSON.parse(JSON.stringify(r.state)), used = 0;
+  const pidOf2 = (p) => (r.seats[p] ? r.seats[p].pid : A);
+  while (r.phase === 'playing') {
+    const p = r.state.turn, a = CPU.choose(r.cfg, r.state, p, 'easy');
+    assert.equal(typeof G.act(r, pidOf2(p), r.game, r.state.moves, a), 'object');
+    if (a.t === 'item') used++;
+    st = R.step(r.cfg, st, a).state; assert.deepEqual(r.state, st);
+  }
+  assert.ok(used > 0, 'アイテムが使われた'); }
+
 // 集まる・始める
 const room = G.newRoom('abcd2345', A, 'けんじ');
 assert.equal(G.join(room, B, '<b>ともだち</b>とても長い名前'), null);

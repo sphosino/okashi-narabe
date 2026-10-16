@@ -1,8 +1,11 @@
 // おかしならべのルール。画面のことは何も知らない（ブラウザでは window.Okashi、Node では require('./rules.js')）
-//   cfg  ：{size, need, target, loveBonus, maxMoves}  盤の大きさ・並べる数・目標点・恋ボーナスのあり/なし・時間切れの手数
-//   状態 ：{cells, hands, scores, fixed, turn, moves}
+//   cfg  ：{size, need, target, loveBonus, maxMoves, party}  盤の大きさ・並べる数・目標点・恋ボーナスのあり/なし・時間切れの手数・わいわい（アイテムあり）
+//   状態 ：{cells, hands, scores, fixed, turn, moves}  わいわいのときは items, box, seed も
 //          cells はマスごとに null（空き）か 0/1/2（誰のお菓子か）、fixed は恋モードのお菓子がいるマスの番号
-//   手   ：{t:'place', to} 置く / {t:'move', from, to} 動かす / {t:'swap', from, to} 入れかえ
+//          items は各プレイヤーが持っているアイテム（1つまで）、box は盤に落ちているアイテム箱 {at:マス, k:アイテム}
+//          seed は箱の落ちる場所と中身を決める種（同じ種なら、どこで回しても同じ試合になる）
+//   手   ：{t:'place', to} 置く / {t:'move', from, to} 動かす / {t:'swap', from, to} 入れかえ / {t:'item', k, to} アイテムを使う
+//          アイテムは、ふつうの1手の前に使える（使っても番は進まない）
 // 状態は書きかえず、いつも新しい状態を返す
 (function(root){
 'use strict';
@@ -23,7 +26,36 @@ function geo(cfg){
 }
 // 手持ちの数：「おまかせ」（auto）なら盤と並べる数から決める（4つ並べなら6個）。数を選んだらその数
 const handFor=(size,need,sel)=>sel&&sel!=='auto'?+sel:need>=4?6:size>=6?5:4;
-const newState=(cfg,hand,start=0)=>({cells:Array(cfg.size*cfg.size).fill(null),hands:[hand,hand,hand],scores:[0,0,0],fixed:[],turn:start,moves:0});
+function newState(cfg,hand,start=0,seed=1){
+  const st={cells:Array(cfg.size*cfg.size).fill(null),hands:[hand,hand,hand],scores:[0,0,0],fixed:[],turn:start,moves:0};
+  if(cfg.party)Object.assign(st,{items:[null,null,null],box:null,seed:seed>>>0});
+  return st;
+}
+
+// ===== わいわい：アイテム =====
+//   arrow キューピッドの矢：自分のお菓子1つを恋モードに / dog いぬ：相手のお菓子1つを持ち主の手持ちに返す
+//   rain 失恋の雨：盤の恋モードを全部とく / dove はと：自分の手持ちが1つ増える
+const ITEMS=['arrow','dog','rain','dove'];
+const SPAWN=4; // 盤に箱がないとき、この手数ごとに空きマスへ落ちてくる。4なら1試合に7個ほど拾われ、実力差もほぼ残る（tools/party-test.js）
+// 種と番号から 0〜1 の数（どこで計算しても同じ）
+function rnd(seed,n){let x=(seed^Math.imul(n+1,2654435761))>>>0;x^=x<<13;x>>>=0;x^=x>>>17;x^=x<<5;x>>>=0;return x/4294967296}
+// アイテムを使える相手のマス。対象のいらないアイテムは [null]、使えないなら []
+function itemTargets(cfg,st,k,p){
+  if(k==='arrow')return st.cells.map((v,i)=>v===p&&!isLove(st,i)?i:-1).filter(i=>i>=0);
+  if(k==='dog')return st.cells.map((v,i)=>v!==null&&v!==p?i:-1).filter(i=>i>=0);
+  if(k==='rain')return st.fixed.length?[null]:[];
+  if(k==='dove')return[null];
+  return[];
+}
+function useItem(cfg,st,a,p){
+  const cells=st.cells.slice(),hands=st.hands.slice(),items=st.items.slice();let fixed=st.fixed.slice(),victim=null;
+  items[p]=null;
+  if(a.k==='arrow')fixed.push(a.to);
+  else if(a.k==='dog'){victim=cells[a.to];cells[a.to]=null;hands[victim]++;fixed=fixed.filter(i=>i!==a.to)}
+  else if(a.k==='rain')fixed=[];
+  else if(a.k==='dove')hands[p]++;
+  return{state:{...st,cells,hands,fixed,items,moves:st.moves+1},victim,wake:false,loveTo:null,item:a.k};
+}
 
 function lines(cfg,cells){const out=[];
   for(const w of geo(cfg).WIN){const p=cells[w[0]];if(p!==null&&w.every(j=>cells[j]===p))out.push({p,w})}
@@ -35,6 +67,7 @@ function lines(cfg,cells){const out=[];
 const isLove=(st,i)=>st.fixed.includes(i);
 function canSwap(st,i,j,p){const v=st.cells[j];return v!==null&&v!==p&&isLove(st,i)===isLove(st,j)}
 function actions(cfg,st,p){const out=[],cells=st.cells,NB=geo(cfg).NB;
+  if(cfg.party&&st.items&&st.items[p]){const k=st.items[p];for(const to of itemTargets(cfg,st,k,p))out.push({t:'item',k,to})}
   if(st.hands[p]>0)cells.forEach((v,i)=>{if(v===null)out.push({t:'place',to:i})});
   cells.forEach((v,i)=>{if(v!==p)return;for(const j of NB[i]){
     if(cells[j]===null)out.push({t:'move',from:i,to:j});
@@ -53,13 +86,16 @@ function gainOf(ls,mover,lt){const g=[0,0,0];ls.forEach(l=>g[l.p]++);
 
 // ① 置く・動かす・入れかえ。victim：入れかえられた相手、wake：恋モード同士で相手が目をさました
 function act(cfg,st,a,p=st.turn){
+  if(a.t==='item')return useItem(cfg,st,a,p);
   const cells=simulate(st,a,p),hands=st.hands.slice();let fixed=st.fixed.slice(),victim=null,wake=false;
   if(a.t==='place')hands[p]--;
   else if(a.t==='move'){const k=fixed.indexOf(a.from);if(k>=0)fixed[k]=a.to}
   else{victim=st.cells[a.to];
     if(isLove(st,a.from)&&isLove(st,a.to)){wake=true;fixed=fixed.filter(i=>i!==a.from)} // 恋モード同士：ぶつけられた相手のお菓子が目をさます
     else fixed.push(a.from)}                                                           // ふつう同士：ぶつけられた相手のお菓子が一目ぼれ
-  return{state:{cells,hands,scores:st.scores,fixed,turn:st.turn,moves:st.moves+1},victim,wake,loveTo:loveTo(cfg,st,a)};
+  const state={...st,cells,hands,fixed,moves:st.moves+1};let picked=null;
+  if(cfg.party&&st.box&&a.to===st.box.at){const items=st.items.slice();picked=st.box.k;items[p]=picked;state.items=items;state.box=null} // 箱のマスに来たら拾う（持てるのは1つ。持っていたら入れかわる）
+  return{state,victim,wake,loveTo:loveTo(cfg,st,a),picked};
 }
 // ② 揃った並びを食べて点を入れる。食べたお菓子は手持ちに戻る。winners：目標点に届いた人（同時なら打った人）
 function eat(cfg,st,mover,lt=null){
@@ -70,7 +106,7 @@ function eat(cfg,st,mover,lt=null){
   eaten.forEach(i=>{hands[cells[i]]++;cells[i]=null});
   const scores=st.scores.map((s,q)=>Math.min(cfg.target,s+gain[q]));
   const w=[0,1,2].filter(q=>scores[q]>=cfg.target);
-  return{state:{cells,hands,scores,fixed:st.fixed.filter(i=>!eaten.includes(i)),turn:st.turn,moves:st.moves},
+  return{state:{...st,cells,hands,scores,fixed:st.fixed.filter(i=>!eaten.includes(i))},
     lines:ls,eaten,gain,loved:gain[mover]>ls.filter(l=>l.p===mover).length,winners:w.length>1&&w.includes(mover)?[mover]:w};
 }
 // ③ 次の番へ。動けない人はパス。時間切れ・誰も動けないときは、その時点で点が多い人の勝ち
@@ -80,15 +116,22 @@ function next(cfg,st){
   let turn=st.turn;const skipped=[];
   for(let k=0;k<3;k++){turn=(turn+1)%3;if(actions(cfg,st,turn).length)break;skipped.push(turn)}
   if(skipped.length>=3)return{state:st,over:true,reason:'stuck',winners:top(),skipped};
-  return{state:{...st,turn},over:false,reason:null,winners:[],skipped};
+  const ns={...st,turn};
+  if(cfg.party&&!st.box&&st.moves>0&&st.moves%SPAWN===0){ // アイテム箱が落ちてくる
+    const e=[];st.cells.forEach((v,i)=>{if(v===null)e.push(i)});
+    if(e.length)ns.box={at:e[Math.floor(rnd(st.seed||1,st.moves*2)*e.length)],k:ITEMS[Math.floor(rnd(st.seed||1,st.moves*2+1)*ITEMS.length)]};
+  }
+  return{state:ns,over:false,reason:null,winners:[],skipped};
 }
 // ①②③をまとめて1手。シミュレーション用（画面では①②③の間にアニメーションをはさむ）
 function step(cfg,st,a){
-  const p=st.turn,m=act(cfg,st,a,p),e=eat(cfg,m.state,p,m.loveTo);
+  const p=st.turn,m=act(cfg,st,a,p);
+  if(a.t==='item')return{state:m.state,over:false,reason:null,winners:[],skipped:[],act:m,eat:{lines:[],eaten:[],gain:[0,0,0],loved:false,winners:[]}}; // アイテムでは番は進まない
+  const e=eat(cfg,m.state,p,m.loveTo);
   if(e.winners.length)return{state:e.state,over:true,reason:'win',winners:e.winners,act:m,eat:e};
   const n=next(cfg,e.state);return{...n,act:m,eat:e};
 }
 
-const api={MAXMOVES,geo,handFor,newState,lines,isLove,canSwap,actions,simulate,loveTo,gainOf,act,eat,next,step};
+const api={MAXMOVES,ITEMS,SPAWN,geo,handFor,newState,lines,isLove,canSwap,actions,itemTargets,simulate,loveTo,gainOf,act,eat,next,step};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.Okashi=api;
 })(this);
