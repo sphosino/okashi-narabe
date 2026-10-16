@@ -592,8 +592,8 @@ function renderResult(){
   const w=S.winners[0];
   el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div>${inRoom()?roomAgainHTML():'<button class="btn primary" id="again" type="button">もう一回</button><button class="btn" id="friendsR" type="button">みんなと遊ぶ</button>'}</div>`;
   el.hidden=false;
-  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());OkashiRoom.send({t:'again'});b.disabled=true;b.textContent='みんなを待っています…'});return}
-  $('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());newGame(true)});
+  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());b.disabled=true;b.textContent='みんなを待っています…';adThen('room_again',()=>OkashiRoom.send({t:'again'}))});return}
+  $('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());adThen('play_again',()=>newGame(true))});
   $('friendsR').addEventListener('click',()=>openRooms('result'));
 }
 const ME={};window.__okashi=ME;const alive=()=>window.__okashi===ME;
@@ -729,6 +729,7 @@ function resolve(mover){
   },reduced?200:720);
 }
 function finish(w){
+  gamesDone++;
   S.over=true;S.busy=false;S.winners=w;if(w.length===1)S.wins[w[0]]++;
   if(played){const me=inRoom()?RV.you:S.cpu.filter(c=>!c).length===1?S.cpu.indexOf(false):-1; // 人が1人のとき（友人戦では自分）だけ勝ち負けを記録する
     gtag('event','game_end',{...gameInfo(),moves:S.moves,result:me<0?'local':w.length>1&&w.includes(me)?'draw':w.includes(me)?'win':'lose'})}
@@ -954,6 +955,36 @@ function tutMarks(){ // 次に押す所を光らせ、矢印つきの吹き出�
   coachPoint(st.face,src?st.src:st.dst);
 }
 $('howto').addEventListener('click',()=>tutStart('button'));
+
+// ================= 広告（Google AdSense のゲーム向け広告：Ad Placement API） =================
+// 出すのは、試合が終わって「もう一回」を押したときだけ。1試合目のあとは出さない。3分に1回まで（data-ad-frequency-hint）
+// ADS_ON は AdSense の審査に通るまで false（自動広告が盤やボタンにかぶらないよう、それまではコードも読みこまない）
+// 手元で確かめるときは、mataasobo.com で ?adtest を付けて開くと、テスト用の広告が出る
+const ADS_ON=false;
+const ADS_TEST=new URLSearchParams(location.search).has('adtest');
+let gamesDone=0;
+window.adsbygoogle=window.adsbygoogle||[];
+const adBreak=window.adBreak=window.adConfig=o=>window.adsbygoogle.push(o);
+(function adsInit(){
+  if(!(ADS_ON||ADS_TEST)||DEMO||location.hostname!=='mataasobo.com')return;
+  const sc=document.createElement('script');sc.async=true;sc.crossOrigin='anonymous';
+  sc.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5893418223096450';
+  sc.dataset.adClient='ca-pub-5893418223096450';sc.dataset.adFrequencyHint='180s';if(ADS_TEST)sc.dataset.adbreakTest='on';
+  document.head.appendChild(sc);
+  window.adConfig({preloadAdBreaks:'on',sound:'on'});
+  window.__adsReady=true;
+})();
+// 広告をはさんでから fn。広告が出ない・読みこめないときは、待たせずにすぐ fn
+function adThen(name,fn){
+  if(!window.__adsReady||gamesDone<2||TUT){fn();return}
+  let done=false,started=false;const go=()=>{if(!done){done=true;fn()}};
+  const was=soundOn;
+  adBreak({type:'next',name,
+    beforeAd(){started=true;soundOn=false;gtag('event','ad_shown',{name})},
+    afterAd(){soundOn=was},
+    adBreakDone(){soundOn=was;go()}});
+  setTimeout(()=>{if(!started)go()},1500); // 広告ブロックなどで何も起きなければ、すぐ次へ
+}
 
 // ================= スタンプ =================
 // 自分のスタンプ：自分の席（一人で遊ぶときは人の席）のお菓子が、その表情で出る。友人戦ではサーバーを通してみんなに届く
