@@ -23,6 +23,12 @@
 > https://mataasobo.com
 > #個人開発 #ブラウザゲーム
 
+## 記事
+
+| 日付 | 場所 | 記事 | メモ |
+|---|---|---|---|
+| 2026-10-17（土） | Zenn | [ルールだけを教えて、三人将棋のAIを育てた](https://zenn.dev/mataasobo/articles/d00affcd65d839) | 原稿は docs/articles/shogi3-ai-zenn.md。反応は Zenn のいいねと、GA で zenn.dev から来た人を見る |
+
 ## 予定と下書き
 
 ### 1. 自己紹介（プロフィールに固定する）
