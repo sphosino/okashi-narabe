@@ -230,8 +230,8 @@ details.rulebox .rules{box-shadow:none;padding-top:0}
 .seat .on{font-size:.72rem;color:var(--muted)}
 .seat .on.y{color:#2f8a22}
 /* 人待ちの状態（部屋の画面のいちばん上）と、空いた席の「待っています…」 */
-.status{display:flex;flex-direction:column;gap:2px;background:var(--cream);border:2px solid var(--gold);border-radius:12px;padding:10px 12px;text-align:left}
-.status b{font-size:1rem}.status span{font-size:.8rem;color:var(--muted);font-weight:500}
+.waitbox{display:flex;flex-direction:column;gap:2px;background:var(--cream);border:2px solid var(--gold);border-radius:12px;padding:10px 12px;text-align:left}
+.waitbox b{font-size:1rem}.waitbox span{font-size:.8rem;color:var(--muted);font-weight:500}
 .waiting{color:var(--p0);animation:blink 1.6s ease-in-out infinite}
 @keyframes blink{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.waiting{animation:none}}
@@ -1170,8 +1170,8 @@ function renderLobby(){
     // 今の状態を、いちばん上に大きく出す（人待ちだと分かるように）
     const n=RV.seats.filter(s=>!s.empty).length,host=(RV.seats[0]&&RV.seats[0].name)||'';
     const status=!lobby?'':you===0
-      ?`<div class="status"><b>⏳ 友達を待っています（${n}/3人）</b><span>下のリンクを送って呼ぼう。そろわなくても始められて、始めたあとも友達は途中から入れます</span></div>`
-      :you>0?`<div class="status"><b>⏳ ${esc(host)} さんが始めるのを待っています（${n}/3人）</b><span>そろったら、${esc(host)} さんが「はじめる」を押します</span></div>`:'';
+      ?`<div class="waitbox"><b>⏳ 友達を待っています（${n}/3人）</b><span>下のリンクを送って呼ぼう。そろわなくても始められて、始めたあとも友達は途中から入れます</span></div>`
+      :you>0?`<div class="waitbox"><b>⏳ ${esc(host)} さんが始めるのを待っています（${n}/3人）</b><span>そろったら、${esc(host)} さんが「はじめる」を押します</span></div>`:'';
     h=`<div class="card"><h2>${lobby?'友達と遊ぶ':'試合中です'}</h2>${status}<div class="seats">${seats}</div>${body}</div>`;
   }
   if(h===lobbyHTML&&!el.hidden)return; // 同じなら描き直さない（入力中の名前が消えないように）
