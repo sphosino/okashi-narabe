@@ -14,7 +14,8 @@
 import { DurableObject } from 'cloudflare:workers';
 import * as OK from './game.js';
 import * as SH from './shogi-room.js';
-const KINDS = { okashi: OK, shogi3: SH };
+import * as DA from './daruma-room.js';
+const KINDS = { okashi: OK, shogi3: SH, daruma: DA };
 const rulesOf = (room) => KINDS[room.kind] || OK; // kind のない部屋はおかしならべ
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, GET, OPTIONS', 'access-control-allow-headers': 'content-type' };
@@ -59,6 +60,13 @@ export class Room extends DurableObject {
     if (await this.ctx.storage.get('room')) throw new Error('もうある部屋です');
     await this.save(KINDS[kind].newRoom(id, pid, name, char));
   }
+  // 部屋の様子。だるま（リアルタイム）はメモリにも持つ。タイマーとメッセージが同じものを書きかえるように
+  async getRoom() {
+    if (this.live) return this.live;
+    const room = await this.ctx.storage.get('room');
+    if (room && room.kind === 'daruma') this.live = room;
+    return room;
+  }
   async save(room) {
     await this.ctx.storage.put('room', room);
     await this.ctx.storage.setAlarm(Date.now() + KEEP_MS);
@@ -92,7 +100,7 @@ export class Room extends DurableObject {
   }
 
   async fetch(req) {
-    const room = await this.ctx.storage.get('room');
+    const room = await this.getRoom();
     if (!room) return new Response('この部屋はありません', { status: 404, headers: CORS });
     const pid = new URL(req.url).searchParams.get('pid');
     const [client, server] = Object.values(new WebSocketPair());
@@ -105,9 +113,22 @@ export class Room extends DurableObject {
   async webSocketMessage(ws, data) {
     const pid = this.ctx.getTags(ws)[0];
     let msg; try { msg = JSON.parse(data); } catch (e) { return; }
-    const room = await this.ctx.storage.get('room');
+    const room = await this.getRoom();
     if (!room) return;
     const G = rulesOf(room);
+    // だるま（リアルタイム）の入力・時計合わせ・言う・振り向く は daruma-room.js がまとめて扱う
+    if (G.onMessage) {
+      const api = {
+        now: () => Date.now(),
+        save: () => { this.ctx.storage.put('room', room); },
+        broadcast: (extra) => this.broadcast(room, undefined, extra),
+        later: (ms, fn) => { setTimeout(() => { try { fn(); } catch (e) { console.error(e); } }, ms); },
+      };
+      const r = G.onMessage(api, room, pid, msg);
+      if (r && r.reply) { ws.send(JSON.stringify(r.reply)); return; }
+      if (typeof r === 'string') { ws.send(JSON.stringify({ t: 'err', msg: r })); return; }
+      if (r === null) return;
+    }
     if (msg.t === 'timeout') {
       const res = G.timeout(room, pid, this.online(), Date.now(), this.secMs());
       if (typeof res === 'string' || !res) return;
@@ -150,7 +171,7 @@ export class Room extends DurableObject {
     if (msg.t !== 'act' || room.phase === 'over' || room.state.moves === 1) await this.report(room); // 1手ごとには知らせない
   }
   async left(ws) {
-    const room = await this.ctx.storage.get('room'); if (!room) return;
+    const room = await this.getRoom(); if (!room) return;
     const pid = this.ctx.getTags(ws)[0];
     if (OK.seatOf(room, pid) >= 0 && !this.online().has(pid)) { OK.markSeen(room, pid, Date.now()); await this.ctx.storage.put('room', room); }
     this.broadcast(room); await this.report(room);
