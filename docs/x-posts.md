@@ -49,7 +49,7 @@
 
 ## 予定と下書き
 
-### 2026-10-18（日）の予定
+### 2026-10-18（日）の予定 → note の公開は後回し（新しい note アカウントのメール確認が届かないため。contact@mataasobo.com の転送を直してから）
 
 1. **朝：note を公開**（docs/articles/shogi3-note.md。見出し画像は img/shogi3-note-header.jpg）
 2. **公開したらすぐ X**：note のお知らせ。画像は img/shogi3-mate.png（21手目の詰み）
