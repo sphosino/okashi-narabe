@@ -46,6 +46,7 @@
 | 日付 | 場所 | 記事 | メモ |
 |---|---|---|---|
 | 2026-10-17（土） | Zenn | [ルールだけを教えて、三人将棋のAIを育てた](https://zenn.dev/mataasobo/articles/d00affcd65d839) | 原稿は docs/articles/shogi3-ai-zenn.md。反応は Zenn のいいねと、GA で zenn.dev から来た人を見る |
+| 2026-10-18（日） | note | [三人将棋をAIに何十万局も指させたら、二人将棋の常識が通じなかった](https://note.com/mataasobo_games/n/nf24ed9b2656b) | 将棋好き向け。原稿は docs/articles/shogi3-note.md。note は新アカウント mataasobo_games（けんじ｜また遊ぼ） |
 
 ## 予定と下書き
 
