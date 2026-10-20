@@ -1,163 +1,189 @@
-// だるまさんがころんだの部屋（kind:'daruma'）。リアルタイム（ここだけ、ほかの部屋とちがって1手ずつではない）
-//   席0がだるま（部屋を作った人）、席1〜3が子ども。通信の試作なので、強気度・気力・CPU の子どもはまだない
-//
-// 子どもの動き：押している間は加速、離すと減速（押しっぱなしで走る）。位置は「押した・離した時刻」だけから計算する
-//   子どものブラウザは、押した瞬間に自分の画面で動かし、{t:'in', p:押した?, at:サーバーの時計での時刻} を送る
-//   サーバーは at で並べ直して位置を計算する（遅れて届いても、押した時刻どおりに扱う＝巻き戻し）。ただし REWIND ミリ秒より昔は認めない
-// 判定：だるまが言い終わって振り向いた時刻 T の GRACE ミリ秒後に動いていたらアウト。遅れて届く入力を待つため、判定は T+REWIND に行う
-//   見ている間（T+GRACE〜T+WATCH）に押したらアウト。見終わったら「ひと休み」で、だるまが次を言い始めるまで子どもは動けない
-// 時計：だるまが言っている間だけ進む。合わせて GOAL ミリ秒になったら、だるまの勝ち。子どもが1人でも TOUCH に届いたら子どもの勝ち
-import { seatOf, markSeen, setListed, leave } from './game.js';
-export { seatOf, markSeen, setListed, leave };
+// だるまさんがころんだの部屋（kind:'daruma'、2026-10-20 に作り直し）
+//   ひとりで遊ぶ版（Desktop/daruma の index.html）と同じ決まり rules.js を、サーバーが 0.1 秒ずつ進める。
+//   みんなの画面は、サーバーから届く様子を描くだけ（全員に同じことが起きる。ずるができない）
+//   席0がだるま、席1〜4が子ども。人がいない席には CPU が入る（だるまの席が空いていれば CPU のだるま）
+//   決まりのファイルは ./daruma/ に写してある（元は sphosino/daruma の rules.js と old/daruma-core.js。変えたら sync-daruma.sh で写し直す）
+import { seatOf, markSeen, setListed } from './game.js';
+import R from './daruma/rules.cjs';
+export { seatOf, markSeen, setListed };
 
-export const L = 100, TOUCH = 96, KNOCK = 35, GRACE = 150, REWIND = 250, WATCH = 1500, CUE = 800, GOAL = 40000;
-export const RUN = { vmax: 10, acc: 30, dec: 40 }; // 単位/秒・単位/秒²（ひとりで遊ぶ試作の「A 押す」と同じ）
+const Core = R.Core, P = R.P;
+// 遊び方の数字（ひとりで遊ぶ版の最初の値と同じ）
+const CLOCK_S = 46, KNOCK = 25, GRACE_TICKS = 3, LOOK_TICKS = 12, CUE_MS = 800, PUSH_MS = 1100, BREAK_MS = [1000, 3500];
+const SEATS = 5;
 const cleanName = (s) => String(s ?? '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 8) || 'ゲスト';
-
-// ---------- 子どもの動き（ブラウザでも同じ式を使う） ----------
-export function advance(s, t) {
-  const dt = (t - s.t) / 1000;
-  if (dt <= 0) return s;
-  let { x, v } = s;
-  if (s.p) {
-    const ta = Math.min(dt, Math.max(0, (RUN.vmax - v) / RUN.acc));
-    x += v * ta + 0.5 * RUN.acc * ta * ta; v = Math.min(RUN.vmax, v + RUN.acc * ta); x += v * (dt - ta);
-  } else {
-    const td = Math.min(dt, v / RUN.dec);
-    x += v * td - 0.5 * RUN.dec * td * td; v = Math.max(0, v - RUN.dec * td);
-  }
-  return { x: Math.min(L, x), v, p: s.p, t };
-}
-// 時刻 t の様子。base（基準の様子）から、t までの入力を順に当てる
-export function stateAt(k, t) {
-  let s = k.base;
-  for (const e of k.ev) { if (e.at > t) break; s = { ...advance(s, e.at), p: e.p }; }
-  return advance(s, t);
-}
-const still = (x, t) => ({ x, v: 0, p: false, t });
+// 動いているものはメモリにだけ持つ（関数やタイマーは保存できないので）
+const LIVE = new WeakMap();
+const live = (room) => { let L = LIVE.get(room); if (!L) LIVE.set(room, (L = { cpu: null, loop: null, timer: null, ev: [] })); return L; };
 
 export function newRoom(id, pid, name) {
-  return { kind: 'daruma', id, phase: 'lobby', seats: [{ pid, name: cleanName(name) }, null, null, null], listed: true,
-    game: 0, kids: null, syl: 0, chantFrom: 0, chantTotal: 0, turnAt: 0, winner: null, wins: [0, 0], log: [] };
+  const seats = Array(SEATS).fill(null);
+  seats[0] = { pid, name: cleanName(name) };   // 作った人は、まずだるまの席（あとで子どもの席に移れる）
+  return { kind: 'daruma', id, phase: 'lobby', host: pid, seats, listed: true, game: 0, st: null, want: Array(SEATS).fill(0), winner: null, wins: [0, 0] };
 }
 export function join(room, pid, name) {
   const i = seatOf(room, pid);
   if (i >= 0) { room.seats[i].name = cleanName(name); return null; }
-  const k = room.seats.indexOf(null, 1);
+  if (room.phase !== 'lobby' && room.phase !== 'over') return 'もう始まっています。終わるまで待ってね';
+  let k = room.seats.indexOf(null, 1); if (k < 0) k = room.seats[0] ? -1 : 0;
   if (k < 0) return '満員です';
   room.seats[k] = { pid, name: cleanName(name) };
-  if (room.kids) room.kids[k] = { base: still(0, Date.now()), ev: [], caught: 0 };
   return null;
+}
+// 席を移る（始まる前だけ）。0 ならだるま、1〜4 なら子ども
+function moveSeat(room, pid, to) {
+  const i = seatOf(room, pid);
+  if (i < 0) return 'まだ部屋に入っていません';
+  if (room.phase !== 'lobby' && room.phase !== 'over') return 'いまは席を移れません';
+  to = to | 0; if (to < 0 || to >= SEATS) return 'その席はありません';
+  if (room.seats[to]) return 'その席にはもう人がいます';
+  room.seats[to] = room.seats[i]; room.seats[i] = null; return null;
+}
+export function leave(room, pid) {
+  const i = seatOf(room, pid); if (i < 0) return '部屋に入っていません';
+  if (room.phase !== 'lobby' && room.phase !== 'over') { // 遊んでいる途中：その席は CPU にまかせる
+    room.seats[i] = null; const c = room.st && kidOf(room, i); if (c) { c.human = false; c.input = 0; }
+    return { seat: i };
+  }
+  room.seats[i] = null;
+  if (room.host === pid) room.host = (room.seats.find(Boolean) || {}).pid || null;
+  return { seat: i };
 }
 export const setChar = () => 'だるまにはキャラがありません';
 export const setRule = () => 'まだルールはありません';
 export const setLimit = () => 'まだ持ち時間はありません';
 export const timeout = () => null;
+const kidOf = (room, seat) => room.st && room.st.children.find((c) => c.id === 'h' + (seat - 1));
 
-function startGame(room, now) {
-  room.game++; room.phase = 'break'; room.syl = 0; room.chantTotal = 0; room.winner = null; room.log = [];
-  room.kids = room.seats.map((s, i) => (i > 0 && s ? { base: still(0, now), ev: [], caught: 0 } : null));
-}
 export function start(room, pid) {
-  if (seatOf(room, pid) !== 0) return 'だるま（部屋を作った人）だけが始められます';
+  if (room.host !== pid) return '部屋を作った人だけが始められます';
   if (room.phase !== 'lobby' && room.phase !== 'over') return 'もう始まっています';
-  if (!room.seats.slice(1).some(Boolean)) return '子どもが1人もいません';
-  startGame(room, Date.now());
-  return null;
+  room._startNow = true; return null;   // 実際に始めるのは onStart（タイマーが使えるところ）
 }
 export const again = start;
 
-// 子どもたちの今の位置で、誰かがタッチしたか
-function checkTouch(room, now) {
-  if (room.phase === 'over' || !room.kids) return null;
-  for (let i = 1; i < room.kids.length; i++) {
-    const k = room.kids[i]; if (!k) continue;
-    if (stateAt(k, now).x >= TOUCH) { room.phase = 'over'; room.winner = 'kids'; room.wins[1]++; room.log.push({ at: now, touch: i }); return i; }
-  }
-  return null;
+// ---------- 進める ----------
+function setup(room) {
+  P.GOAL_TICKS = CLOCK_S * 10; P.CATCH_KNOCK = KNOCK; R.LOOK.grace = GRACE_TICKS; R.LOOK.ticks = LOOK_TICKS;
 }
-// 子どもを止めて、新しい基準にする（ひと休みに入るとき・捕まったとき）
-function freeze(k, t, dx = 0) { const s = stateAt(k, t); k.base = still(Math.max(0, s.x - dx), t); k.ev = []; }
+function begin(api, room) {
+  setup(room);
+  const L = live(room); stopAll(L);
+  room.game++; room.winner = null; room.want = Array(SEATS).fill(0);
+  room.st = R.newGameSeats({ kids: room.seats.slice(1).map((s) => (s ? { name: s.name } : null)) });
+  L.cpu = room.seats[0] ? null : R.cpuDaruma();
+  toPrep(api, room, true);
+}
+function stopAll(L) { if (L.loop) clearInterval(L.loop); if (L.timer) clearTimeout(L.timer); L.loop = L.timer = null; }
+function event(room, e) { live(room).ev.push(e); }
+function after(api, room, ms, fn) { const L = live(room); if (L.timer) clearTimeout(L.timer); L.timer = setTimeout(() => { L.timer = null; try { fn(); } catch (e) { console.error(e); } }, ms); }
+function toPrep(api, room, first) {
+  const st = room.st, L = live(room);
+  room.phase = 'prep'; R.applyReserved(st);
+  if (L.cpu) { L.cpu.onPrep(st); const b = first ? 1500 : BREAK_MS[0] + Math.random() * (BREAK_MS[1] - BREAK_MS[0]); after(api, room, Math.max(0, b - CUE_MS), () => toCue(api, room)); }
+  else st.turnArmed = true;
+  api.save(); send(api, room);
+}
+function toCue(api, room) {
+  if (room.phase !== 'prep') return;
+  room.phase = 'cue'; event(room, { cue: 1 }); send(api, room);
+  after(api, room, CUE_MS, () => toChant(api, room));
+}
+function toChant(api, room) {
+  room.phase = 'chant'; send(api, room);
+  const L = live(room); if (L.loop) clearInterval(L.loop);
+  L.loop = setInterval(() => { try { step(api, room); } catch (e) { console.error(e); } }, P.TICK_MS);
+}
+function step(api, room) {
+  setup(room);
+  const st = room.st, L = live(room);
+  for (const c of st.children) if (c.human) c.input = room.want[(+c.id.slice(1)) + 1] || 0;
+  if (room.phase === 'chant') {
+    const before = R.said(st), res = Core.tick(P, st);
+    if (st.justOutOfGas) { st.justOutOfGas = false; event(room, { outOfGas: 1 }); }
+    if (R.said(st) > before && R.said(st) < 10) event(room, { syl: R.said(st) });
+    if (res.reached) return finish(api, room, res.reached);
+    if (res.timeUp) return finish(api, room, null);
+    if (res.chantDone) {
+      event(room, { syl: 10 });
+      if (R.wantsTurn(st)) { R.startLook(st); room.phase = 'look'; event(room, { look: 1 }); }
+      else {
+        const out = R.resolve(st);
+        event(room, { carry: 1, auto: !!out.autoSkip });
+        if (L.cpu) L.cpu.onCarry(st); else st.turnArmed = false;
+      }
+    } else if (L.cpu) L.cpu.onTick(st);
+  } else if (room.phase === 'look') {
+    const r = R.lookTick(st);
+    if (r.reached) return finish(api, room, r.reached);
+    for (const c of r.newly) event(room, { caught: c.id, late: +(c.caughtLate * 0.1).toFixed(2), pressing: !!c.caughtPressing });
+    if (r.done) {
+      const out = R.endLook(st);
+      event(room, { pushed: out.caughtList.map((c) => c.id), from: out.before });
+      room.phase = 'push'; clearInterval(L.loop); L.loop = null;
+      after(api, room, PUSH_MS, () => toPrep(api, room, false));
+    }
+  }
+  send(api, room);
+}
+function finish(api, room, kid) {
+  const L = live(room); stopAll(L);
+  room.phase = 'over';
+  room.winner = kid ? { side: 'kids', id: kid.id, name: kid.name } : { side: 'daruma' };
+  room.wins[kid ? 1 : 0]++;
+  event(room, { over: 1 });
+  api.save(); send(api, room);
+}
+function send(api, room) { const L = live(room), ev = L.ev; L.ev = []; api.broadcast(ev.length ? { ev } : undefined); }
 
 // ---------- メッセージ（worker.js の Room から呼ばれる） ----------
-// api：{ now(), save(), broadcast(extra), later(ms, fn) }。戻り値：本人に返すエラーの文字列か null
+// api：{ now(), save(), broadcast(extra), later(ms, fn) }。戻り値：{reply} か、本人に返すエラーの文字列か、null（扱った）か、undefined（ふつうの流れへ）
 export function onMessage(api, room, pid, msg) {
-  const now = api.now(), me = seatOf(room, pid);
-  if (msg.t === 'sync') return { reply: { t: 'sync', c: msg.c, s: now } }; // 時計合わせ
-  if (msg.t === 'in') { // 子どもの入力：押した・離した
-    if (me < 1 || !room.kids || !room.kids[me]) return null;
-    const k = room.kids[me]; if (k.caught > now) return null;
-    let at = Number(msg.at); if (!Number.isFinite(at)) return null;
-    at = Math.max(now - REWIND, Math.min(now, at)); // 巻き戻せるのは REWIND まで
-    const p = !!msg.p;
-    if (room.phase === 'chant') {
-      if (at < k.base.t) at = k.base.t;
-      k.ev.push({ at, p }); k.ev.sort((a, b) => a.at - b.at);
-    } else if (room.phase === 'watch') {
-      if (at < room.turnAt + GRACE) { k.ev.push({ at, p }); k.ev.sort((a, b) => a.at - b.at); } // 振り向く前の入力（遅れて届いた）
-      else if (p) { catchKid(room, me, at); } // 見ている間に動いた
-    } else return null; // ひと休み中などは動けない
-    if (checkTouch(room, now)) { api.save(); api.broadcast({ event: { touch: me } }); return null; }
-    api.save(); api.broadcast();
-    return null;
+  const me = seatOf(room, pid), st = room.st, playing = st && !['lobby', 'over'].includes(room.phase);
+  if (msg.t === 'sync') return { reply: { t: 'sync', c: msg.c, s: api.now() } };
+  if (msg.t === 'seat') { const e = moveSeat(room, pid, msg.i); if (e) return e; api.save(); api.broadcast(); return null; }
+  if (msg.t === 'want') { // 子ども：目標の速さ（0〜1、0 は離している）
+    if (me < 1 || !playing) return null;
+    room.want[me] = Math.max(0, Math.min(1, +msg.v || 0)); return null;
   }
-  if (msg.t === 'go') { // だるま：言い始める（合図のあと CUE ミリ秒で1音目）
-    if (me !== 0 || room.phase !== 'break') return 'いまは言い始められません';
-    room.phase = 'cue'; room.syl = 0; room.cueAt = now;
-    api.save(); api.broadcast({ event: { cue: now + CUE } });
-    api.later(CUE, () => {
-      if (room.phase !== 'cue') return;
-      room.phase = 'chant'; room.chantFrom = api.now();
-      room.kids.forEach((k) => { if (k) freeze(k, room.chantFrom); });
-      api.save(); api.broadcast({ event: { chant: room.chantFrom } });
-    });
-    return null;
-  }
-  if (msg.t === 'syl') { // だるま：1音言った。10音目は turn（振り向く）か見送るか
-    if (me !== 0 || room.phase !== 'chant') return null;
-    const i = Math.max(1, Math.min(10, msg.i | 0));
-    room.syl = i;
-    if (checkTouch(room, now)) { api.save(); api.broadcast({ event: { touch: true } }); return null; }
-    if (i < 10) { api.broadcast({ event: { syl: i } }); return null; }
-    room.chantTotal += now - room.chantFrom;
-    if (room.chantTotal >= GOAL) { room.phase = 'over'; room.winner = 'daruma'; room.wins[0]++; api.save(); api.broadcast({ event: { timeup: true } }); return null; }
-    if (!msg.turn) { // 見送り：子どもはそのまま動ける。すぐ次を言える
-      room.syl = 0; room.chantFrom = now; room.log.push({ at: now, skip: true });
-      api.save(); api.broadcast({ event: { skip: now } }); return null;
+  if (me === 0 && playing) { // だるま
+    if (msg.t === 'go') { if (room.phase !== 'prep') return 'いまは唱えられません'; toCue(api, room); return null; }
+    if (msg.t === 'arm') { st.turnArmed = !!msg.on; send(api, room); return null; }
+    if (msg.t === 'aura') {
+      const r = String(msg.r); if (!R.TIERS.includes(r)) return null;
+      if (room.phase === 'prep') st.reward = r; else st.nextReward = (r === st.reward || r === st.nextReward) ? null : r;
+      send(api, room); return null;
     }
-    room.phase = 'watch'; room.turnAt = now;
-    api.save(); api.broadcast({ event: { turn: now } });
-    // 遅れて届く入力を待ってから、振り向いた時刻で判定する
-    api.later(REWIND, () => {
-      if (room.phase !== 'watch' || room.turnAt !== now) return;
-      const T = room.turnAt + GRACE, caught = [];
-      room.kids.forEach((k, i) => { if (k && k.caught <= T && stateAt(k, T).v > 0.05) { caught.push({ i, v: +stateAt(k, T).v.toFixed(2) }); catchKid(room, i, T); } });
-      room.log.push({ at: room.turnAt, turn: true, caught: caught.map((c) => c.i) });
-      api.save(); api.broadcast({ event: { judged: caught } });
-    });
-    api.later(WATCH, () => {
-      if (room.phase !== 'watch' || room.turnAt !== now) return;
-      room.phase = 'break'; room.syl = 0;
-      room.kids.forEach((k) => { if (k) freeze(k, api.now()); });
-      api.save(); api.broadcast({ event: { rest: true } });
-    });
-    return null;
+    if (msg.t === 'tempo') {
+      const v = Math.max(0, Math.min(100, +msg.v || 0));
+      if (room.phase === 'chant') Core.applyTempoChange(P, st, v); else st.tempoValue = v;
+      send(api, room); return null;
+    }
   }
-  return undefined; // ここでは扱わない（join・start・leave などは worker.js のふつうの流れで）
-}
-function catchKid(room, i, t) {
-  const k = room.kids[i]; if (!k || k.caught > t) return;
-  freeze(k, t, KNOCK); k.caught = t + 800;
+  if (msg.t === 'start' || msg.t === 'again') { // 始める：ここで始めると、タイマーを使える
+    const e = start(room, pid); if (e) return e;
+    room._startNow = false; begin(api, room); return null;
+  }
+  return undefined; // join・leave・listed などは worker.js のふつうの流れで
 }
 
 export function summary(room, online) {
   return { kind: 'daruma', id: room.id, phase: room.phase, listed: room.listed !== false, updated: Date.now(),
     seats: room.seats.map((s) => (s ? { name: s.name, online: online.has(s.pid) } : null)) };
 }
+// それぞれ向けの様子。だるまの「振り向くつもりか」と「予約したオーラ」は、だるまにしか見せない
 export function view(room, pid, online) {
-  return { kind: 'daruma', id: room.id, phase: room.phase, you: seatOf(room, pid), game: room.game,
-    seats: room.seats.map((s, i) => ({ name: s ? s.name : null, empty: !s, online: !!s && online.has(s.pid), host: i === 0 })),
-    kids: room.kids, syl: room.syl, chantTotal: room.chantTotal, chantFrom: room.phase === 'chant' ? room.chantFrom : 0,
-    turnAt: room.turnAt, winner: room.winner, wins: room.wins, listed: room.listed !== false,
-    rule: { L, TOUCH, KNOCK, GRACE, REWIND, WATCH, CUE, GOAL, RUN } };
+  const you = seatOf(room, pid), st = room.st;
+  const v = { kind: 'daruma', id: room.id, phase: room.phase, you, host: room.host === pid, game: room.game,
+    seats: room.seats.map((s, i) => ({ name: s ? s.name : null, empty: !s, online: !!s && online.has(s.pid) })),
+    winner: room.winner, wins: room.wins, listed: room.listed !== false, rule: { clock: CLOCK_S, knock: KNOCK } };
+  if (st) {
+    v.st = { cp: st.chantProgress, el: st.elapsedTicks, goal: CLOCK_S * 10, stamina: st.stamina, staminaMax: st.staminaMax, reward: st.reward,
+      tempo: st.tempoValue, cycle: st.cycle, catches: st.catches, type: st.typeName,
+      look: st.looking && st.look ? { t: st.look.t, from: st.look.from } : null,
+      kids: st.children.map((c) => ({ id: c.id, name: c.name, human: !!c.human, pos: c.pos, vel: c.vel, maxSpeed: c.maxSpeed, brake: c.brake,
+        energy: c.energy, energyMax: c.energyMax, winded: !!c.winded, caught: !!c.caughtNow, accT: c.accT })) };
+    if (you === 0) { v.st.turnArmed = st.turnArmed; v.st.nextReward = st.nextReward; }
+  }
+  return v;
 }
