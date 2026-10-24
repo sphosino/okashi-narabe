@@ -341,7 +341,7 @@ if(EN){document.title='Sweets in a Row';
 {const b=document.getElementById('langBtn');b.textContent=EN?'日本語':'EN';b.setAttribute('aria-label',EN?'日本語にする':'English');
   b.onclick=()=>{const u=new URLSearchParams(location.search);u.set('lang',EN?'ja':'en');location.search=u}}
 // サーバーからのお知らせは日本語で届くので、英語のときはここで置きかえる
-const ERR_EN={'部屋を作った人だけが決められます':'Only the host can change this','試合が始まったら変えられません':"Can't change this after the game starts",'そのルールはありません':"That rule doesn't exist",'満員です':'The room is full',
+const ERR_EN={'みんなの準備OKを待っています':'Waiting for everyone to be ready','座っている人だけが押せます':'Only seated players can do this','部屋を作った人だけが決められます':'Only the host can change this','試合が始まったら変えられません':"Can't change this after the game starts",'そのルールはありません':"That rule doesn't exist",'満員です':'The room is full',
   '座っている人だけが選べます':'Only seated players can choose','そのキャラはありません':"That character doesn't exist",'そのキャラはほかの人が使っています':'Someone else is using that character','その持ち時間は選べません':"That time limit isn't available",
   '座っている人だけが知らせられます':'Only seated players can report this','部屋を作った人だけが始められます':'Only the host can start','もう始まっています':'Already started','今は打てません':"You can't move right now",'盤がずれています':'The board is out of sync',
   'あなたの番ではありません':"It's not your turn",'手がおかしいです':'Invalid move','その手は打てません':"That move isn't allowed",'座っていません':"You're not seated",'試合が終わってからです':'Only after the game ends','座っている人だけが押せます':'Only seated players can press this'};
@@ -622,7 +622,8 @@ function renderResult(){
   const w=S.winners[0];
   el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+L(' の勝ち！',' wins!'):L('同点！','Tie!')}</h2><div class="rank">${rows}</div>${inRoom()?roomAgainHTML():`<button class="btn primary" id="again" type="button">${L('もう一回','Play again')}</button><button class="btn" id="friendsR" type="button">${L('みんなと遊ぶ','Play online')}</button>`}</div>`;
   el.hidden=false;
-  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());b.disabled=true;b.textContent=L('みんなを待っています…','Waiting for everyone…');adThen('room_again',()=>OkashiRoom.send({t:'again'}))});return}
+  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());b.disabled=true;adThen('room_again',()=>OkashiRoom.send({t:'again'}))});
+    const r=$('readyR');if(r)r.addEventListener('click',()=>OkashiRoom.send({t:'ready',on:!RV.seats[RV.you].ready}));return}
   $('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());adThen('play_again',()=>newGame(true))});
   $('friendsR').addEventListener('click',()=>openRooms('result'));
 }
@@ -1070,6 +1071,9 @@ function onRoom(m){
     else if(lf.why==='timeout2')showToast(L(`${lf.name} さんが2回続けて時間切れになったので、CPUが代わりに打ちます`,`${lf.name} ran out of time twice in a row, so the CPU takes over`));
     else if(!me)showToast(m.room.phase==='lobby'?L(`${lf.name} さんが部屋を出ました`,`${lf.name} left the room`):L(`${lf.name} さんが部屋を出たので、CPUが代わりに打ちます`,`${lf.name} left, so the CPU takes over`))}
   RV=m.room;rvAt=Date.now();if(m.move)moveQ.push(m.move);
+  // 部屋を作ったばかりなら、そのまま始める（2026-10-25。作ったあと部屋の画面で待つより、CPU と遊びながら待つ。来た人は CPU の席と交代して入れる）
+  {let g=null;try{g=sessionStorage.getItem('ok-go')}catch(e){}
+    if(g&&g===RV.id){try{sessionStorage.removeItem('ok-go')}catch(e){}if(RV.you===0&&RV.phase==='lobby'&&RV.seats.filter(s=>!s.empty).length===1)OkashiRoom.send({t:'start'})}}
   roomPump(m.t==='err');
 }
 function roomPump(force){
@@ -1130,19 +1134,24 @@ function roomCpu(){ // CPU の手は、座っている人のうち係の人（cp
   cpuSent=key;cpuSentAt=Date.now();
   OkashiRoom.send({t:'act',game:roomGame,n:S.moves,a:{t:best.t,from:best.from??null,to:best.to??null,...(best.k?{k:best.k}:{})}});
 }
+// 2026-10-25：次の試合は、ほかの人が全員「準備OK」を押してから、部屋を作った人が「もう一回」で始める（だるまの部屋と同じ）
+const roomWait=()=>RV.seats.filter((s,i)=>i>0&&!s.empty&&s.online&&!s.ready).length;
+function readyBtnHTML(id){const me=RV.seats[RV.you];
+  return me.ready?`<button class="btn" id="${id}" type="button">${L('準備OK ✓（取り消す）','Ready ✓ (undo)')}</button><p class="note">${L(`${esc(RV.seats[0].name)} さんが始めるのを待っています`,`Waiting for ${esc(RV.seats[0].name)} to start`)}</p>`
+    :`<button class="btn primary" id="${id}" type="button">${L('準備OK！','Ready!')}</button>`}
 function roomAgainHTML(){
-  const n=RV.seats.filter(s=>!s.empty).length,me=RV.seats[RV.you];
+  const me=RV.seats[RV.you];
   if(!me)return `<a class="btn primary" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`;
-  const k=RV.seats.filter(s=>s.voted).length;
-  return (me.voted?`<button class="btn primary" id="again" type="button" disabled>${L('みんなを待っています','Waiting for everyone')}（${k}/${n}）</button>`
-    :`<button class="btn primary" id="again" type="button">${n>1?L(`この${n}人でもう一回`,`Play again with these ${n}`):L('もう一回','Play again')}${k?`（${k}/${n}）`:''}</button>`)
+  const w=roomWait();
+  return (RV.you===0?`<button class="btn primary" id="again" type="button"${w?' disabled':''}>${L('もう一回','Play again')}</button>${w?`<p class="note">${L(`みんなの「準備OK」を待っています（あと${w}人）`,`Waiting for everyone to be ready (${w} left)`)}</p>`:''}`
+    :readyBtnHTML('readyR'))
     +`<a class="btn" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`;
 }
 const myName=()=>{try{return localStorage.getItem('mataasobo-name')||''}catch(e){return ''}};
 const saveName=v=>{try{localStorage.setItem('mataasobo-name',v)}catch(e){}};
 async function makeRoom(where){
   gtag('event','room_create',{where});showToast(L('部屋を作っています…','Making a room…'));
-  try{const id=await OkashiRoom.create(myName()||L('ゲスト','Guest'),favChar());location.href='?room='+id}
+  try{const id=await OkashiRoom.create(myName()||L('ゲスト','Guest'),favChar());try{sessionStorage.setItem('ok-go',id)}catch(e){}location.href='?room='+id}
   catch(e){showToast(L('部屋を作れませんでした。少し時間をおいて、もう一度ためしてください',"Couldn't make a room. Please wait a bit and try again"))}
 }
 // 部屋の一覧（「みんなと遊ぶ」）。開いているあいだ5秒ごとに取りなおす
@@ -1176,7 +1185,7 @@ function renderLobby(){
   if(!RV)h=`<div class="card"><h2>${roomErr?L('部屋が見つかりません','Room not found'):L('部屋につないでいます…','Connecting to the room…')}</h2>${roomErr?`<p class="note">${esc(roomErr)}</p><a class="btn primary" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`:''}</div>`;
   else{
     const url=location.origin+location.pathname+'?room='+RV.id,you=RV.you,lobby=RV.phase==='lobby';
-    const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?(lobby?L('あき（始めたらCPU）','Open (CPU once started)'):'CPU'):esc(s.name)+(i===you?L('（あなた）',' (you)'):'')}</span><span class="on${s.online?' y':''}">${s.empty?(lobby?`<span class="waiting">${L('待っています…','waiting…')}</span>`:''):s.online?L('● いる','● here'):L('るす','away')}</span></div>`).join('');
+    const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?(lobby?L('あき（始めたらCPU）','Open (CPU once started)'):'CPU'):esc(s.name)+(i===you?L('（あなた）',' (you)'):'')}</span><span class="on${s.online?' y':''}">${s.empty?(lobby?`<span class="waiting">${L('待っています…','waiting…')}</span>`:''):!s.online?L('るす','away'):i===0?L('● いる','● here'):s.ready?L('✓ 準備OK','✓ Ready'):L('準備中…','Not ready')}</span></div>`).join('');
     const mine=you>=0?S.chars[you]:favChar(),taken=RV.seats.map((s,i)=>!s.empty&&i!==you?S.chars[i]:-1);
     const charRow=lobby?`<label>${L('あなたのキャラ','Your character')}<div class="charrow">${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${mine===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div></label>`:'';
     const nameBox=`<label>${L('あなたの名前','Your name')}<input id="myName" maxlength="8" placeholder="${L('なまえ','name')}" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`+charRow;
@@ -1189,8 +1198,8 @@ function renderLobby(){
         +`<label>${L('ルール','Rules')}${you===0?'':L('（部屋を作った人が決めます）',' (the host decides)')}<div class="presets">${Object.keys(PRESETS).map(k=>`<button type="button" data-rule="${k}" class="${RV.rule===k?'on':''}"${you===0?'':' disabled'}>${PRESETS[k].n}</button>`).join('')}</div></label>`
         +`<label>${L('1手の持ち時間','Time per move')}${you===0?'':L('（部屋を作った人が決めます）',' (the host decides)')}<div class="limits">${[30,60,90].map(t=>`<button type="button" data-sec="${t}" class="${RV.limit===t?'on':''}"${you===0?'':' disabled'}>${t}${L('秒','s')}</button>`).join('')}</div></label>`
         +(you===0?`<label class="check"><input type="checkbox" id="listed"${RV.listed?' checked':''}>${L('「みんなと遊ぶ」の一覧に出す（だれでも参加できる）','List in "Play online" (anyone can join)')}</label>`:'')
-        +(you===0?`<button class="btn primary" id="go" type="button">${L('③ はじめる','③ Start')}</button><p class="note">${L('そろわなくても始められます。空いた席にはCPUが入り、始めたあとも友達はCPUの席と交代して途中から入れます','You can start without a full room. Empty seats get the CPU, and friends can take over a CPU seat mid-game')}</p>`
-          :`<p class="note">${L(`③ ${esc(RV.seats[0].name)} さんが「はじめる」を押すのを待っています`,`③ Waiting for ${esc(RV.seats[0].name)} to press "Start"`)}</p>`);
+        +(you===0?`<button class="btn primary" id="go" type="button"${roomWait()?' disabled':''}>${L('③ はじめる','③ Start')}</button>${roomWait()?`<p class="note">${L(`みんなの「準備OK」を待っています（あと${roomWait()}人）`,`Waiting for everyone to be ready (${roomWait()} left)`)}</p>`:''}<p class="note">${L('そろわなくても始められます。空いた席にはCPUが入り、始めたあとも友達はCPUの席と交代して途中から入れます','You can start without a full room. Empty seats get the CPU, and friends can take over a CPU seat mid-game')}</p>`
+          :readyBtnHTML('readyL'));
     }else if(RV.seats.some(s=>s.empty))body=lobby
       ?`<p class="note">${L(`${esc(RV.seats[0].name)} さんの部屋に招待されました`,`You've been invited to ${esc(RV.seats[0].name)}'s room`)}</p>`+nameBox+`<button class="btn primary" id="join" type="button">${L('参加する','Join')}</button>`
       :`<p class="note">${RV.kicked?L('時間切れが続いたので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます','You timed out repeatedly, so the CPU is playing for you. Take over from the CPU to keep playing'):L('もう試合が始まっています。CPUの席と交代して、途中から参加できます','The game has already started. You can take over a CPU seat and join mid-game')}</p>`+nameBox
@@ -1214,6 +1223,7 @@ function renderLobby(){
   on('share',()=>navigator.share({title:L('おかしならべ','Sweets in a Row'),text:L('おかしならべで遊ぼ！',"Let's play Sweets in a Row!"),url:$('inv').value}).catch(()=>{}));
   on('go',()=>{gtag('event','room_start',{seated:RV.seats.filter(s=>!s.empty).length});OkashiRoom.send({t:'start'})});
   on('watch',()=>{watching=true;render()});
+  on('readyL',()=>OkashiRoom.send({t:'ready',on:!RV.seats[RV.you].ready}));
   el.querySelectorAll('.presets button[data-rule]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'rule',rule:b.dataset.rule})}));
   el.querySelectorAll('.limits button[data-sec]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'limit',sec:+b.dataset.sec})}));
   const ls=$('listed');if(ls)ls.addEventListener('change',()=>OkashiRoom.send({t:'listed',on:ls.checked}));
