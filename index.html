@@ -191,7 +191,7 @@ body.demo .stamps{display:none}
 body.room .controls,body.room .friends{display:none}
 /* あそびかた（チュートリアル）：自分のキャラが吹き出しで話しかけ、光っている所を押して1手ずつ覚える */
 .coach{position:absolute;z-index:40;display:flex;align-items:center;gap:6px;background:#fff;border:3px solid var(--gold);border-radius:14px;padding:6px 12px 6px 6px;
-  box-shadow:0 4px 0 #0002,0 14px 30px -10px #5b2f2066;max-width:min(300px,calc(100vw - 24px))}
+  box-shadow:0 4px 0 #0002,0 14px 30px -10px #5b2f2066;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box}
 .coach svg{width:44px;height:44px;flex:none}
 .coach .say{flex:1;min-width:0;display:grid;gap:6px}
 .coach p{margin:0;font-weight:700;font-size:.88rem;line-height:1.5}
@@ -264,64 +264,64 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="wrap">
   <div class="main">
-  <header><h1>おかしならべ</h1><small>つまんで動かして、揃えて食べちゃおう</small></header>
+  <header><h1 data-en="Sweets in a Row">おかしならべ</h1><small data-en="Pick them up, line them up, eat them up!">つまんで動かして、揃えて食べちゃおう</small><button class="btn" id="langBtn" type="button" style="margin-left:auto"></button></header>
   <div class="players" id="players"></div>
   <div class="status" id="status" aria-live="polite"></div>
   <div class="coach" id="coach" hidden></div>
   <div class="stage" id="stage">
-    <div class="board" id="board" role="grid" aria-label="盤面"></div>
+    <div class="board" id="board" role="grid" aria-label="盤面" data-en-label="Board"></div>
     <div class="result" id="result" hidden></div>
     <div class="result lobby" id="lobby" hidden></div>
     <div class="result lobby" id="rooms" hidden></div>
   </div>
   </div>
   <div class="side">
-  <div class="stamps" id="stamps" aria-label="スタンプを送る"></div>
-  <div class="friends"><button class="btn" id="friends" type="button">👫 みんなと遊ぶ</button><button class="btn" id="howto" type="button">📖 あそびかた</button></div>
-  <div class="roomonly"><button class="btn" id="invite" type="button" hidden>👫 友達を呼ぶ</button><button class="btn" id="leave" type="button">部屋を出る</button></div>
+  <div class="stamps" id="stamps" aria-label="スタンプを送る" data-en-label="Send a stamp"></div>
+  <div class="friends"><button class="btn" id="friends" type="button" data-en="👫 Play online">👫 みんなと遊ぶ</button><button class="btn" id="howto" type="button" data-en="📖 How to play">📖 あそびかた</button></div>
+  <div class="roomonly"><button class="btn" id="invite" type="button" hidden data-en="👫 Invite friends">👫 友達を呼ぶ</button><button class="btn" id="leave" type="button" data-en="Leave room">部屋を出る</button></div>
   <div class="invitebox" id="invitePanel" hidden></div>
   <div class="controls">
     <label for="level">CPU
-      <select id="level"><option value="easy">やさしい</option><option value="normal" selected>ふつう</option><option value="hard">つよい</option></select>
+      <select id="level"><option value="easy" data-en="Easy">やさしい</option><option value="normal" selected data-en="Normal">ふつう</option><option value="hard" data-en="Hard">つよい</option></select>
     </label>
-    <span class="plabel">ルール</span><div class="presets" role="group" aria-label="ルール"><button type="button" data-p="normal">ふつう</button><button type="button" data-p="quick">さくっと</button><button type="button" data-p="deep">じっくり</button><button type="button" data-p="party">わいわい</button></div>
-    <details class="custom"><summary>自分で決める</summary><div class="customrow">
-    <label for="size">盤
+    <span class="plabel" data-en="Rules">ルール</span><div class="presets" role="group" aria-label="ルール" data-en-label="Rules"><button type="button" data-p="normal" data-en="Normal">ふつう</button><button type="button" data-p="quick" data-en="Quick">さくっと</button><button type="button" data-p="deep" data-en="Long">じっくり</button><button type="button" data-p="party" data-en="Party">わいわい</button></div>
+    <details class="custom"><summary data-en="Custom">自分で決める</summary><div class="customrow">
+    <label for="size"><span data-en="Board">盤</span>
       <select id="size"><option value="5">5×5</option><option value="6" selected>6×6</option><option value="7">7×7</option></select>
     </label>
-    <label for="need">並べる数
-      <select id="need"><option value="3">3つ</option><option value="4" selected>4つ</option></select>
+    <label for="need"><span data-en="In a row">並べる数</span>
+      <select id="need"><option value="3" data-en="3">3つ</option><option value="4" selected data-en="4">4つ</option></select>
     </label>
-    <label for="handcount">手持ち
-      <select id="handcount"><option value="auto" selected>おまかせ</option><option value="5">5個</option><option value="6">6個</option><option value="7">7個</option><option value="8">8個</option></select>
+    <label for="handcount"><span data-en="Hand">手持ち</span>
+      <select id="handcount"><option value="auto" selected data-en="Auto">おまかせ</option><option value="5" data-en="5">5個</option><option value="6" data-en="6">6個</option><option value="7" data-en="7">7個</option><option value="8" data-en="8">8個</option></select>
     </label>
-    <label for="love">恋ボーナス
-      <select id="love"><option value="on" selected>あり</option><option value="off">なし</option></select>
+    <label for="love"><span data-en="Love bonus">恋ボーナス</span>
+      <select id="love"><option value="on" selected data-en="On">あり</option><option value="off" data-en="Off">なし</option></select>
     </label>
-    <label for="target">目標
-      <select id="target"><option value="2">2点</option><option value="3" selected>3点</option><option value="5">5点</option><option value="7">7点</option></select>
+    <label for="target"><span data-en="Goal">目標</span>
+      <select id="target"><option value="2" data-en="2 pts">2点</option><option value="3" selected data-en="3 pts">3点</option><option value="5" data-en="5 pts">5点</option><option value="7" data-en="7 pts">7点</option></select>
     </label>
-    <label for="party">アイテム
-      <select id="party"><option value="off" selected>なし</option><option value="on">あり</option></select>
+    <label for="party"><span data-en="Items">アイテム</span>
+      <select id="party"><option value="off" selected data-en="Off">なし</option><option value="on" data-en="On">あり</option></select>
     </label>
     </div></details>
     <span class="spacer"></span>
-    <button class="btn" id="sound" type="button" aria-pressed="true">音 ON</button>
-    <button class="btn" id="undo" type="button">1手戻す</button>
-    <button class="btn primary" id="reset" type="button">新しいゲーム</button>
+    <button class="btn" id="sound" type="button" aria-pressed="true" data-en="Sound ON">音 ON</button>
+    <button class="btn" id="undo" type="button" data-en="Undo">1手戻す</button>
+    <button class="btn primary" id="reset" type="button" data-en="New game">新しいゲーム</button>
   </div>
-  <details class="rulebox"><summary>くわしいルール</summary>
+  <details class="rulebox"><summary data-en="Full rules">くわしいルール</summary>
   <ol class="rules">
-    <li>自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
-    <li>同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
-    <li><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえられた<b>相手のお菓子は一目ぼれして「恋モード」</b>（目がハート）になります。</li>
-    <li><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえられた相手のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
-    <li id="ruleParty" hidden><b>わいわい</b>：ときどき盤に<b>🎁 アイテム箱</b>が落ちてくる。そのマスにお菓子を置く・動かすと拾える（持てるのは1つ）。自分の番に、ふつうの1手の<b>前に</b>名前カードのボタンで使える。🏹 キューピッドの矢（自分のお菓子を恋モードに）・🐕 いぬ（相手のお菓子を1つ、持ち主の手持ちに返す）・🌧 失恋の雨（恋モードを全部とく）・🕊 はと（手持ち＋1）。</li>
-    <li id="ruleLove"><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
-    <li>先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
+    <li data-en="On your turn, either &lt;b&gt;place a sweet from your hand on an empty square&lt;/b&gt; or &lt;b&gt;move one of your sweets on the board to an adjacent empty square&lt;/b&gt; (diagonals OK).">自分の番は、<b>手持ちのお菓子を空いているマスに置く</b>か、<b>盤の自分のお菓子をとなりの空きマスへ動かす</b>（ななめもOK）。</li>
+    <li data-en="Line up &lt;b id=&quot;ruleNeed&quot;&gt;4 of the same sweet to eat them for 1 point&lt;/b&gt;. Eaten sweets go back to your hand. &lt;span id=&quot;ruleMore&quot;&gt;5 in a row is 2 points.&lt;/span&gt;">同じお菓子が<b id="ruleNeed">4つ並ぶと食べられて1点</b>。食べたお菓子は手持ちに戻ります。<span id="ruleMore">5つ並びは2点。</span></li>
+    <li data-en="&lt;b&gt;Swapping&lt;/b&gt; is allowed any time: drop your sweet onto an adjacent opponent's sweet to trade places. If that lines up the opponent's sweets, they score, so be careful. The opponent's sweet you swapped with &lt;b&gt;falls in love at first sight and enters &quot;love mode&quot;&lt;/b&gt; (heart eyes)."><b>入れかえ</b>は何回でもOK：自分のお菓子をとなりの相手のお菓子の上に落とすと、場所を入れかえられます。相手のお菓子が揃ったら相手の点になるので注意。入れかえられた<b>相手のお菓子は一目ぼれして「恋モード」</b>（目がハート）になります。</li>
+    <li data-en="You can swap &lt;b&gt;normal with normal&lt;/b&gt; or &lt;b&gt;love mode with love mode&lt;/b&gt;, but not normal with love mode. When two love-mode sweets swap, the one you hit &lt;b&gt;snaps out of it&lt;/b&gt; and goes back to normal. Moving to an empty square is always allowed."><b>ふつう同士</b>、<b>恋モード同士</b>なら入れかえOK。ふつうと恋モードは入れかえられません。恋モード同士で入れかえると、入れかえられた相手のお菓子は<b>目がさめて</b>ふつうに戻ります。空いているマスへ動かすのはいつでもOK。</li>
+    <li id="ruleParty" hidden data-en="&lt;b&gt;Party&lt;/b&gt;: sometimes a &lt;b&gt;🎁 item box&lt;/b&gt; drops onto the board. Place or move a sweet onto it to pick it up (you can hold 1). On your turn, use it from your name card &lt;b&gt;before&lt;/b&gt; your normal move. 🏹 Cupid's Arrow (put your own sweet in love mode) · 🐕 Dog (send one opponent sweet back to its owner's hand) · 🌧 Heartbreak Rain (end all love modes) · 🕊 Dove (hand +1)."><b>わいわい</b>：ときどき盤に<b>🎁 アイテム箱</b>が落ちてくる。そのマスにお菓子を置く・動かすと拾える（持てるのは1つ）。自分の番に、ふつうの1手の<b>前に</b>名前カードのボタンで使える。🏹 キューピッドの矢（自分のお菓子を恋モードに）・🐕 いぬ（相手のお菓子を1つ、持ち主の手持ちに返す）・🌧 失恋の雨（恋モードを全部とく）・🕊 はと（手持ち＋1）。</li>
+    <li id="ruleLove" data-en="&lt;b&gt;Love bonus&lt;/b&gt;: line up sweets &lt;b&gt;by moving one of your love-mode sweets&lt;/b&gt; (swapping two love-mode sweets counts too) for &lt;b&gt;+1 point&lt;/b&gt;."><b>恋ボーナス</b>：自分の<b>恋モードのお菓子を動かして</b>（恋モード同士の入れかえもOK）揃えたら<b>＋1点</b>。</li>
+    <li data-en="First to the goal score wins. After 150 moves time runs out, and whoever has the most points wins. Move sweets by dragging, or by tapping one and then tapping where it goes.">先に目標点を取った人の勝ち。150手で時間切れになり、その時点で点が多い人の勝ち。お菓子はドラッグでも、タップで選んでからタップでも動かせます。</li>
   </ol>
   </details>
-  <p class="foot"><a href="/">また遊ぼ</a>・<a href="/privacy.html">プライバシーポリシー</a></p>
+  <p class="foot" data-en="&lt;a href=&quot;/&quot;&gt;Mataasobo&lt;/a&gt; · &lt;a href=&quot;/privacy.html&quot;&gt;Privacy policy&lt;/a&gt;"><a href="/">また遊ぼ</a>・<a href="/privacy.html">プライバシーポリシー</a></p>
   </div>
 </div>
 
@@ -329,9 +329,25 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
 <script src="cpu.js"></script>
 <script src="room.js"></script>
 <script>
+// 言葉（2026-10-25）：日本語と英語。?lang=en・?lang=ja で選ぶと、このブラウザに覚える（また遊ぼのゲームで共通の mataasobo-lang）。
+//   選んでいなければブラウザの言語（日本語以外は英語）。画面の決まった字は data-en、動きで変わる字は L('日本語','English')
+const LANG=(()=>{let l=null;try{l=new URLSearchParams(location.search).get('lang');if(l==='en'||l==='ja')localStorage.setItem('mataasobo-lang',l);else l=localStorage.getItem('mataasobo-lang')}catch(e){}
+  return l==='en'||l==='ja'?l:/^ja\b/i.test(navigator.language||'')?'ja':'en'})();
+const EN=LANG==='en',L=(ja,en)=>EN?en:ja;
+document.documentElement.lang=LANG;
+if(EN){document.title='Sweets in a Row';
+  document.querySelectorAll('[data-en]').forEach(e=>e.innerHTML=e.dataset.en);
+  document.querySelectorAll('[data-en-label]').forEach(e=>e.setAttribute('aria-label',e.dataset.enLabel))}
+{const b=document.getElementById('langBtn');b.textContent=EN?'日本語':'EN';b.setAttribute('aria-label',EN?'日本語にする':'English');
+  b.onclick=()=>{const u=new URLSearchParams(location.search);u.set('lang',EN?'ja':'en');location.search=u}}
+// サーバーからのお知らせは日本語で届くので、英語のときはここで置きかえる
+const ERR_EN={'部屋を作った人だけが決められます':'Only the host can change this','試合が始まったら変えられません':"Can't change this after the game starts",'そのルールはありません':"That rule doesn't exist",'満員です':'The room is full',
+  '座っている人だけが選べます':'Only seated players can choose','そのキャラはありません':"That character doesn't exist",'そのキャラはほかの人が使っています':'Someone else is using that character','その持ち時間は選べません':"That time limit isn't available",
+  '座っている人だけが知らせられます':'Only seated players can report this','部屋を作った人だけが始められます':'Only the host can start','もう始まっています':'Already started','今は打てません':"You can't move right now",'盤がずれています':'The board is out of sync',
+  'あなたの番ではありません':"It's not your turn",'手がおかしいです':'Invalid move','その手は打てません':"That move isn't allowed",'座っていません':"You're not seated",'試合が終わってからです':'Only after the game ends','座っている人だけが押せます':'Only seated players can press this'};
 const PC=['--s0','--s1','--s2']; // 席ごとの色（選んだキャラの色が入る）
 // キャラ。席 p のキャラは S.chars[p]。盤のマスには席の番号が入り、見た目だけキャラで変わる
-const CH=[{n:'マカロン',c:'#ff6f9f'},{n:'キャンディ',c:'#43b2f5'},{n:'ゼリー',c:'#6cc94e'},{n:'プリン',c:'#e8960c'}];
+const CH=[{n:L('マカロン','Macaron'),ja:'マカロン',c:'#ff6f9f'},{n:L('キャンディ','Candy'),ja:'キャンディ',c:'#43b2f5'},{n:L('ゼリー','Jelly'),ja:'ゼリー',c:'#6cc94e'},{n:L('プリン','Pudding'),ja:'プリン',c:'#e8960c'}];
 const chName=p=>CH[S.chars[p]].n;
 const faceNormal=y=>`<circle cx="41" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="59" cy="${y}" r="3.6" fill="#5b2f20"/><circle cx="42.2" cy="${y-1.2}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-1.2}" r="1.1" fill="#fff"/>
   <path d="M45.5 ${y+5} Q50 ${y+9} 54.5 ${y+5}" stroke="#5b2f20" stroke-width="2.4" fill="none" stroke-linecap="round"/>
@@ -363,7 +379,7 @@ const FACE={
     <circle cx="41" cy="${y+.5}" r="3.4" fill="${INK}"/><circle cx="59" cy="${y+.5}" r="3.4" fill="${INK}"/><circle cx="42.2" cy="${y-.7}" r="1.1" fill="#fff"/><circle cx="60.2" cy="${y-.7}" r="1.1" fill="#fff"/>
     <path d="M43 ${y+5} H57 Q50 ${y+13} 43 ${y+5} Z" fill="${INK}"/>`,                              // やる気（キリッ）
 };
-const STAMPS=[['hi','よろしく！'],['nice','ナイス！'],['doki','ドキッ'],['eh','えっ！？'],['ouch','やられた〜'],['grr','ぐぬぬ'],['thx','ありがと'],['again','もう一回！']];
+const STAMPS=EN?[['hi','Hi!'],['nice','Nice!'],['doki','Swoon'],['eh','Huh?!'],['ouch','Ouch~'],['grr','Grr…'],['thx','Thanks'],['again','Again!']]:[['hi','よろしく！'],['nice','ナイス！'],['doki','ドキッ'],['eh','えっ！？'],['ouch','やられた〜'],['grr','ぐぬぬ'],['thx','ありがと'],['again','もう一回！']];
 let face=faceNormal;
 const makeArt=()=>[
  // いちごマカロン
@@ -403,6 +419,8 @@ const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&qu
 const cssv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const col=p=>cssv(PC[p]);
 const nm=i=>`<b style="--c:var(${PC[i]})">${esc(S.names[i])}</b>`;
+// 英語の「〇〇の」：自分（You）なら Your、ほかは 〇〇's
+const whose=i=>EN&&S.names[i]==='You'?`<b style="--c:var(${PC[i]})">Your</b>`:`${nm(i)}'s`;
 const DEMO=new URLSearchParams(location.search).has('demo'); // 広告用デモ：恋ボーナスで逆転する試合を探して再生する
 let demoMsg='';
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -419,7 +437,7 @@ const leftSec=()=>{const l=leftMs();return l===null?null:Math.max(0,Math.ceil(l/
 // 今この画面で打てる番か：一人で遊ぶときは人の席なら誰でも、友人戦では自分の席の番だけ
 const humanTurn=()=>inRoom()?!!RV&&RV.phase==='playing'&&S.turn===RV.you:!S.cpu[S.turn];
 
-const S={names:['あなた','キャンディ','ゼリー'],chars:[0,1,2],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
+const S={names:[L('あなた','You'),L('キャンディ','Candy'),L('ゼリー','Jelly')],chars:[0,1,2],cpu:[false,true,true],wins:[0,0,0],level:'normal',loveBonus:true,
   size:6,need:4,target:3,cells:[],hands:[5,5,5],scores:[0,0,0],fixed:[],turn:0,start:0,over:false,winners:[],moves:0,
   busy:false,sel:null,eating:[],passMsg:''};
 let hist=[];
@@ -483,7 +501,9 @@ function centerOf(i){const r=rectOf(i);return r?{x:r.left+r.width/2,y:r.top+r.he
 let C={size:6,need:4,target:3,loveBonus:true,maxMoves:MAXMOVES}; // 今のゲームのルール設定
 function setCfg(){C={size:S.size,need:S.need,target:S.target,loveBonus:S.loveBonus,maxMoves:MAXMOVES};if(S.party)C.party=true}
 // わいわいのアイテム。how は対象を選ぶときのひとこと（対象のいらないアイテムは、押すとすぐ使う）
-const ITEM_INFO={arrow:{e:'🏹',n:'キューピッドの矢',how:'恋モードにする自分のお菓子を選んでね'},dog:{e:'🐕',n:'いぬ',how:'くわえていく相手のお菓子を選んでね'},
+const ITEM_INFO=EN?{arrow:{e:'🏹',n:"Cupid's Arrow",how:'Pick one of your sweets to fall in love'},dog:{e:'🐕',n:'Dog',how:"Pick an opponent's sweet for the dog to carry off"},
+  rain:{e:'🌧',n:'Heartbreak Rain',how:''},dove:{e:'🕊',n:'Dove',how:''}}
+  :{arrow:{e:'🏹',n:'キューピッドの矢',how:'恋モードにする自分のお菓子を選んでね'},dog:{e:'🐕',n:'いぬ',how:'くわえていく相手のお菓子を選んでね'},
   rain:{e:'🌧',n:'失恋の雨',how:''},dove:{e:'🕊',n:'はと',how:''}};
 const N=()=>S.size;
 const isFixed=i=>R.isLove(S,i);
@@ -501,8 +521,8 @@ function renderPlayers(){
   const box=$('players');
   if(!box.children.length){
     box.innerHTML=S.names.map((_,i)=>`<div class="pl" id="pl${i}" style="--c:var(${PC[i]})">
-      <div class="top"><button type="button" class="icon" id="ic${i}" aria-label="キャラをえらぶ">${sweet(i,'')}</button><input id="name${i}" maxlength="8" aria-label="プレイヤー${i+1}の名前"></div>
-      <div class="jar" id="jar${i}" aria-label="点数"></div>
+      <div class="top"><button type="button" class="icon" id="ic${i}" aria-label="${L('キャラをえらぶ','Pick a character')}">${sweet(i,'')}</button><input id="name${i}" maxlength="8" aria-label="${L(`プレイヤー${i+1}の名前`,`Player ${i+1} name`)}"></div>
+      <div class="jar" id="jar${i}" aria-label="${L('点数','Score')}"></div>
       <div class="ph" id="ph${i}"></div>
       <i class="tm" id="tm${i}" aria-hidden="true"></i>
       <div class="meta"><span id="hd${i}"></span><button type="button" class="itembtn" id="it${i}" hidden></button><button type="button" class="chip" id="who${i}"></button></div></div>`).join('');
@@ -515,34 +535,34 @@ function renderPlayers(){
     $('pl'+i).classList.toggle('on',!S.over&&S.turn===i);
     const jar=$('jar'+i);let h='';
     for(let k=0;k<S.target;k++)h+=`<i class="${k<S.scores[i]?'f':''}${k<S.scores[i]&&k>=prevScores[i]?' new':''}"></i>`;
-    jar.innerHTML=h;jar.setAttribute('aria-label',`${S.scores[i]}点 / ${S.target}点`);
-    $('hd'+i).textContent=`${S.wins[i]}勝`;
+    jar.innerHTML=h;jar.setAttribute('aria-label',L(`${S.scores[i]}点 / ${S.target}点`,`${S.scores[i]} / ${S.target} points`));
+    $('hd'+i).textContent=L(`${S.wins[i]}勝`,`${S.wins[i]} ${S.wins[i]===1?'win':'wins'}`);
     renderItem(i);
     renderHand(i);
     const w=$('who'+i);
     if(inRoom()){const s=RV&&RV.seats[i],el=$('name'+i);el.disabled=true;if(el.value!==S.names[i])el.value=S.names[i];
-      w.disabled=true;w.removeAttribute('aria-pressed');w.textContent=!s?'…':RV.you===i?'あなた':s.cpu?'CPU':s.empty?'あき':s.online?'人':'るす';w.setAttribute('aria-label',w.textContent);
-    }else{w.textContent=S.cpu[i]?'CPU':'人';w.setAttribute('aria-pressed',S.cpu[i]);
-      w.setAttribute('aria-label',`プレイヤー${i+1}を${S.cpu[i]?'人':'CPU'}に切り替え`)}
+      w.disabled=true;w.removeAttribute('aria-pressed');w.textContent=!s?'…':RV.you===i?L('あなた','You'):s.cpu?'CPU':s.empty?L('あき','Open'):s.online?L('人','Human'):L('るす','Away');w.setAttribute('aria-label',w.textContent);
+    }else{w.textContent=S.cpu[i]?'CPU':L('人','Human');w.setAttribute('aria-pressed',S.cpu[i]);
+      w.setAttribute('aria-label',L(`プレイヤー${i+1}を${S.cpu[i]?'人':'CPU'}に切り替え`,`Switch player ${i+1} to ${S.cpu[i]?'human':'CPU'}`))}
   });
   prevScores=S.scores.slice();
 }
 function renderStatus(){
   const st=$('status');
-  if(S.over){st.innerHTML=S.winners.length===1?`${nm(S.winners[0])} の勝ち！`:`${S.winners.map(nm).join(' と ')} が同点！`;return}
+  if(S.over){st.innerHTML=S.winners.length===1?L(`${nm(S.winners[0])} の勝ち！`,`${nm(S.winners[0])} wins!`):L(`${S.winners.map(nm).join(' と ')} が同点！`,`${S.winners.map(nm).join(' and ')} tie!`);return}
   if(S.passMsg){st.innerHTML=S.passMsg;return}
-  if(S.busy&&S.eating.length){st.innerHTML=`もぐもぐ…`;return}
-  if(DEMO){st.innerHTML=demoMsg||`${nm(S.turn)} の番`;return}
-  if(TUT&&TUT.i>=0){st.innerHTML=`あそびかた<span class="sub">${Math.min(TUT.i+1,TSTEPS.length)} / ${TSTEPS.length}</span>${TSTEPS[TUT.i]&&!TSTEPS[TUT.i].final?'<button class="skip" id="tutSkip" type="button">スキップ</button>':''}`;return}
-  if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?'友達を待っています':esc(roomErr||'部屋につないでいます…');return}
-  if(S.cpu[S.turn])st.innerHTML=`${nm(S.turn)} が考え中…`;
+  if(S.busy&&S.eating.length){st.innerHTML=L('もぐもぐ…','Munch munch…');return}
+  if(DEMO){st.innerHTML=demoMsg||L(`${nm(S.turn)} の番`,`${whose(S.turn)} turn`);return}
+  if(TUT&&TUT.i>=0){st.innerHTML=`${L('あそびかた','How to play')}<span class="sub">${Math.min(TUT.i+1,TSTEPS.length)} / ${TSTEPS.length}</span>${TSTEPS[TUT.i]&&!TSTEPS[TUT.i].final?`<button class="skip" id="tutSkip" type="button">${L('スキップ','Skip')}</button>`:''}`;return}
+  if(inRoom()&&(!RV||RV.phase==='lobby')){st.innerHTML=RV?L('友達を待っています','Waiting for friends'):esc(roomErr||L('部屋につないでいます…','Connecting to the room…'));return}
+  if(S.cpu[S.turn])st.innerHTML=L(`${nm(S.turn)} が考え中…`,`${nm(S.turn)} is thinking…`);
   else if(inRoom()&&S.turn!==RV.you){const s=RV.seats[S.turn],l=leftSec();
-    st.innerHTML=`${nm(S.turn)} の番<span class="sub">${s.online?'考え中…':'るすです'}${l!==null?`（残り${l}秒）`:''}</span>`}
-  else if(inRoom()&&leftSec()!==null){st.innerHTML=`${nm(S.turn)} の番！<span class="sub">残り${leftSec()}秒</span>`}
-  else if(S.sel&&S.sel.kind==='item')st.innerHTML=`${ITEM_INFO[S.sel.k].e} ${ITEM_INFO[S.sel.k].how}<span class="sub">ほかの所を押すとやめる</span>`;
-  else if(S.sel)st.innerHTML=`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`;
+    st.innerHTML=`${L(`${nm(S.turn)} の番`,`${whose(S.turn)} turn`)}<span class="sub">${s.online?L('考え中…','thinking…'):L('るすです','away')}${l!==null?L(`（残り${l}秒）`,` (${l}s left)`):''}</span>`}
+  else if(inRoom()&&leftSec()!==null){st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${L(`残り${leftSec()}秒`,`${leftSec()}s left`)}</span>`}
+  else if(S.sel&&S.sel.kind==='item')st.innerHTML=`${ITEM_INFO[S.sel.k].e} ${ITEM_INFO[S.sel.k].how}<span class="sub">${L('ほかの所を押すとやめる','tap elsewhere to cancel')}</span>`;
+  else if(S.sel)st.innerHTML=L(`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`,`Move it to a glowing square<span class="sub">tap again to cancel</span>`);
   else{const left=MAXMOVES-S.moves;
-    st.innerHTML=`${nm(S.turn)} の番！<span class="sub">${left<=30?`あと${left}手で時間切れ`:'お菓子をつまんで動かそう'}</span>`}
+    st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${left<=30?L(`あと${left}手で時間切れ`,`time runs out in ${left} moves`):L('お菓子をつまんで動かそう','pick up a sweet and move it')}</span>`}
 }
 function renderBoard(){
   const b=$('board');b.style.gridTemplateColumns=b.style.gridTemplateRows=`repeat(${N()},minmax(0,1fr))`;
@@ -552,17 +572,17 @@ function renderBoard(){
   S.cells.forEach((v,i)=>{
     const c=document.createElement('div');c.className='cell';c.id='c'+i;c.dataset.i=i;
     const r=Math.floor(i/N())+1,cl=i%N()+1;c.setAttribute('role','gridcell');
-    let label=`${r}行${cl}列 ${v===null?'空き':chName(v)}`;
+    let label=L(`${r}行${cl}列 ${v===null?'空き':chName(v)}`,`Row ${r}, column ${cl}: ${v===null?'empty':chName(v)}`);
     if(v!==null){
       const fx=isFixed(i),mine=human&&v===S.turn;
-      if(fx){c.classList.add('fixed');label+='（恋モード）'}
+      if(fx){c.classList.add('fixed');label+=L('（恋モード）',' (love mode)')}
       c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v,'sweet',fx)}</div>`;
       if(S.eating.includes(i))c.classList.add('glow');
     }
     const t=tg.get(i);
-    if(C.party&&S.box&&S.box.at===i&&v===null){c.insertAdjacentHTML('beforeend','<div class="box" aria-hidden="true">🎁</div>');label+='（アイテム箱）'}
-    if(t==='swap'){c.classList.add('swaptgt');label+='（入れかえ）'}else if(t==='item'){c.classList.add('itemtgt');label+='（アイテムを使う）'}else if(t)c.classList.add('tgt');
-    if(human&&(t||(v===S.turn))){c.tabIndex=0;c.setAttribute('aria-label',label+(t?' に動かす':' を選ぶ'))}else c.setAttribute('aria-label',label);
+    if(C.party&&S.box&&S.box.at===i&&v===null){c.insertAdjacentHTML('beforeend','<div class="box" aria-hidden="true">🎁</div>');label+=L('（アイテム箱）',' (item box)')}
+    if(t==='swap'){c.classList.add('swaptgt');label+=L('（入れかえ）',' (swap)')}else if(t==='item'){c.classList.add('itemtgt');label+=L('（アイテムを使う）',' (use item)')}else if(t)c.classList.add('tgt');
+    if(human&&(t||(v===S.turn))){c.tabIndex=0;c.setAttribute('aria-label',label+(t?L(' に動かす',': move here'):L(' を選ぶ',': select')))}else c.setAttribute('aria-label',label);
     b.appendChild(c);
   });
   $('undo').disabled=S.busy||!hist.some(h=>!S.cpu[h.turn]);
@@ -574,7 +594,7 @@ function renderItem(i){
   const info=ITEM_INFO[k],mine=!DEMO&&!S.over&&!S.busy&&S.turn===i&&humanTurn()&&!TUT,can=mine&&R.itemTargets(C,S,k,i).length>0;
   b.hidden=false;b.disabled=!can;b.textContent=`${info.e} ${info.n}`;b.title=info.n;
   b.classList.toggle('ready',can&&!(S.sel&&S.sel.kind==='item'));b.classList.toggle('sel',!!(S.sel&&S.sel.kind==='item'&&mine));
-  b.setAttribute('aria-label',can?`${info.n}を使う`:`${info.n}を持っている`);
+  b.setAttribute('aria-label',can?L(`${info.n}を使う`,`Use ${info.n}`):L(`${info.n}を持っている`,`Holding ${info.n}`));
 }
 document.addEventListener('click',e=>{const b=e.target.closest('.itembtn');if(!b||b.disabled)return;
   const i=+b.id.slice(2),k=S.items&&S.items[i];if(!k||!canAct()||S.turn!==i)return;
@@ -589,20 +609,20 @@ function renderHand(i){
   const ph=$('ph'+i),n=S.hands[i],mine=n>0&&!DEMO&&!S.over&&!S.busy&&S.turn===i&&humanTurn(),sel=mine&&S.sel&&S.sel.kind==='hand'; // 手持ちがあるときだけ、つまめる
   const k=[n,mine,sel,S.chars[i]].join();if(handKey[i]===k)return;handKey[i]=k;
   ph.className='ph'+(mine?' mine':'')+(sel?' sel':'');
-  ph.innerHTML=n?`${sweet(i,'')}<span class="x">×${n}</span>${mine?'<span class="lbl">つまんで盤へ</span>':''}`:'<span class="lbl">手持ちなし</span>';
-  if(mine&&n){ph.tabIndex=0;ph.setAttribute('role','button');ph.setAttribute('aria-label',`手持ちの${chName(i)}（${n}個）を選ぶ`)}
-  else{ph.removeAttribute('tabindex');ph.removeAttribute('role');ph.setAttribute('aria-label',`手持ち ${n}個`)}
+  ph.innerHTML=n?`${sweet(i,'')}<span class="x">×${n}</span>${mine?`<span class="lbl">${L('つまんで盤へ','drag to the board')}</span>`:''}`:`<span class="lbl">${L('手持ちなし','hand empty')}</span>`;
+  if(mine&&n){ph.tabIndex=0;ph.setAttribute('role','button');ph.setAttribute('aria-label',L(`手持ちの${chName(i)}（${n}個）を選ぶ`,`Select ${chName(i)} from your hand (${n})`))}
+  else{ph.removeAttribute('tabindex');ph.removeAttribute('role');ph.setAttribute('aria-label',L(`手持ち ${n}個`,`Hand: ${n}`))}
 }
 function renderResult(){
   const el=$('result');
   if(!S.over){el.hidden=true;return}
   const order=[0,1,2].sort((a,b)=>S.scores[b]-S.scores[a]);
   const rows=order.map(p=>{const rank=1+S.scores.filter(x=>x>S.scores[p]).length;
-    return `<span class="n">${rank}位</span>${sweet(p,'')}<span class="nm" style="color:var(${PC[p]})">${esc(S.names[p])}</span><span class="p" style="color:var(${PC[p]})">${S.scores[p]}点</span>`}).join('');
+    return `<span class="n">${L(`${rank}位`,['1st','2nd','3rd'][rank-1])}</span>${sweet(p,'')}<span class="nm" style="color:var(${PC[p]})">${esc(S.names[p])}</span><span class="p" style="color:var(${PC[p]})">${L(`${S.scores[p]}点`,`${S.scores[p]} pts`)}</span>`}).join('');
   const w=S.winners[0];
-  el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+' の勝ち！':'同点！'}</h2><div class="rank">${rows}</div>${inRoom()?roomAgainHTML():'<button class="btn primary" id="again" type="button">もう一回</button><button class="btn" id="friendsR" type="button">みんなと遊ぶ</button>'}</div>`;
+  el.innerHTML=`<div class="card">${sweet(w,'big')}<h2 style="color:var(${PC[w]})">${S.winners.length===1?esc(S.names[w])+L(' の勝ち！',' wins!'):L('同点！','Tie!')}</h2><div class="rank">${rows}</div>${inRoom()?roomAgainHTML():`<button class="btn primary" id="again" type="button">${L('もう一回','Play again')}</button><button class="btn" id="friendsR" type="button">${L('みんなと遊ぶ','Play online')}</button>`}</div>`;
   el.hidden=false;
-  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());b.disabled=true;b.textContent='みんなを待っています…';adThen('room_again',()=>OkashiRoom.send({t:'again'}))});return}
+  if(inRoom()){const b=$('again');if(b)b.addEventListener('click',()=>{gtag('event','room_again',gameInfo());b.disabled=true;b.textContent=L('みんなを待っています…','Waiting for everyone…');adThen('room_again',()=>OkashiRoom.send({t:'again'}))});return}
   $('again').addEventListener('click',()=>{if(played)gtag('event','play_again',gameInfo());adThen('play_again',()=>newGame(true))});
   $('friendsR').addEventListener('click',()=>openRooms('result'));
 }
@@ -611,7 +631,7 @@ let cpuTimer=null,cpuPending=false;
 function render(){
   if(!alive())return;
   applyChars();renderPlayers();renderStatus();renderBoard();renderResult();renderLobby();renderRooms();renderStamps();renderInvite();tutMarks();
-  if(inRoom())document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?'★あなたの番！ おかしならべ':RV&&RV.phase==='lobby'&&RV.you>=0?'（人待ち）おかしならべ':'おかしならべ';
+  if(inRoom()){const g=L('おかしならべ','Sweets in a Row');document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?L('★あなたの番！ ','★Your turn! ')+g:RV&&RV.phase==='lobby'&&RV.you>=0?L('（人待ち）','(waiting) ')+g:g}
   clearTimeout(cpuTimer);cpuPending=false;
   if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
 }
@@ -635,7 +655,7 @@ function doAct(a,fromRect,fromServer){
   S.lastLove=r.loveTo;a.victim=r.victim;a.wake=r.wake; // 入れかえアニメで使う
   S.sel=null;S.busy=true;S.passMsg='';
   render();
-  if(r.picked){const cr=$('pl'+p).getBoundingClientRect(),info=ITEM_INFO[r.picked];setTimeout(()=>{text(cr.left+cr.width/2,cr.bottom-14,`${info.e} ${info.n} ゲット！`,col(p),20,80);[988,1319].forEach((f,k)=>tone(f,.12,{type:'triangle',vol:.1,delay:k*.08}))},300)}
+  if(r.picked){const cr=$('pl'+p).getBoundingClientRect(),info=ITEM_INFO[r.picked];setTimeout(()=>{text(cr.left+cr.width/2,cr.bottom-14,L(`${info.e} ${info.n} ゲット！`,`${info.e} Got ${info.n}!`),col(p),20,80);[988,1319].forEach((f,k)=>tone(f,.12,{type:'triangle',vol:.1,delay:k*.08}))},300)}
   // 動いた駒をなめらかに運ぶ
   const fly=(i,from)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
     el.animate([{transform:`translate(${from.left+from.width/2-(to.left+to.width/2)}px,${from.top+from.height/2-(to.top+to.height/2)}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:280,easing:'cubic-bezier(.3,1.35,.5,1)'})};
@@ -650,11 +670,11 @@ function doAct(a,fromRect,fromServer){
       if(vc)vc.classList.toggle('fixed',!a.wake);
       const c=$('c'+a.from),pt=centerOf(a.from); // ぶつけられた相手のお菓子は a.from に移っている
       if(a.wake){ // 目がさめた
-        text(pt.x,pt.y-28,'はっ！',col(a.victim),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(a.victim)],kinds:['star','dot']});
+        text(pt.x,pt.y-28,L('はっ！','Huh!'),col(a.victim),24,55);burst(pt.x,pt.y,{n:12,speed:3,colors:['#fff','#cfd8ff',col(a.victim)],kinds:['star','dot']});
         tone(1200,.08,{type:'triangle',vol:.1});tone(600,.15,{type:'triangle',vol:.08,delay:.06});
       }else{     // 一目ぼれ
         if(c)c.classList.add('stamp');
-        text(pt.x,pt.y-28,'ドキッ',cssv('--p0'),24,60);if(S.moves%2===0)cpuReact(a.victim,'doki');burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
+        text(pt.x,pt.y-28,L('ドキッ','Swoon!'),cssv('--p0'),24,60);if(S.moves%2===0)cpuReact(a.victim,'doki');burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
   else sfx.drop(p);
@@ -706,10 +726,10 @@ function swapAnim(a,p,dropRect,src){
 // アイテムを使ったときの演出
 function itemFx(a,r,p){
   const info=ITEM_INFO[a.k],pt=a.to!=null?centerOf(a.to):null,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height*.35};
-  if(a.k==='arrow'){text(pt.x,pt.y-30,'キューピッドの矢！',cssv('--p0'),22,80);burst(pt.x,pt.y,{n:22,speed:4,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});[1047,1319,1568].forEach((f,k)=>tone(f,.14,{type:'sine',vol:.1,delay:k*.07}))}
-  else if(a.k==='dog'){text(pt.x,pt.y-30,'わんっ！',col(p),26,80);burst(pt.x,pt.y,{n:16,speed:4,colors:['#c58b5a','#fff',col(r.victim)],kinds:['dot','star']});tone(520,.1,{type:'square',vol:.08});tone(420,.12,{type:'square',vol:.08,delay:.12})}
-  else if(a.k==='rain'){rain(['#7cc8ff','#bfe3ff','#ffffff'],90);text(mid.x,mid.y,'失恋の雨…',cssv('--p1'),30,90);tone(600,.3,{type:'sine',vol:.08,to:300})}
-  else if(a.k==='dove'){const cr=$('pl'+p).getBoundingClientRect();text(cr.left+cr.width/2,cr.bottom-14,'ポッポー！ 手持ち＋1',col(p),20,80);tone(880,.1,{type:'triangle',vol:.1});tone(1175,.12,{type:'triangle',vol:.1,delay:.1})}
+  if(a.k==='arrow'){text(pt.x,pt.y-30,L('キューピッドの矢！',"Cupid's Arrow!"),cssv('--p0'),22,80);burst(pt.x,pt.y,{n:22,speed:4,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});[1047,1319,1568].forEach((f,k)=>tone(f,.14,{type:'sine',vol:.1,delay:k*.07}))}
+  else if(a.k==='dog'){text(pt.x,pt.y-30,L('わんっ！','Woof!'),col(p),26,80);burst(pt.x,pt.y,{n:16,speed:4,colors:['#c58b5a','#fff',col(r.victim)],kinds:['dot','star']});tone(520,.1,{type:'square',vol:.08});tone(420,.12,{type:'square',vol:.08,delay:.12})}
+  else if(a.k==='rain'){rain(['#7cc8ff','#bfe3ff','#ffffff'],90);text(mid.x,mid.y,L('失恋の雨…','Heartbreak rain…'),cssv('--p1'),30,90);tone(600,.3,{type:'sine',vol:.08,to:300})}
+  else if(a.k==='dove'){const cr=$('pl'+p).getBoundingClientRect();text(cr.left+cr.width/2,cr.bottom-14,L('ポッポー！ 手持ち＋1','Coo! Hand +1'),col(p),20,80);tone(880,.1,{type:'triangle',vol:.1});tone(1175,.12,{type:'triangle',vol:.1,delay:.1})}
   showStamp(p,a.k==='rain'?'eh':a.k==='dog'?'nice':'hi');
 }
 function trayRect(){const ph=$('ph'+S.turn);return ph?(ph.querySelector('svg')||ph).getBoundingClientRect():$('board').getBoundingClientRect()} // 置くお菓子が飛び出す所
@@ -726,10 +746,10 @@ function resolve(mover){
     ls.forEach((l,k)=>{const cs=l.w.map(centerOf),z=cs[cs.length-1],m={x:(cs[0].x+z.x)/2,y:(cs[0].y+z.y)/2};
       setTimeout(()=>{text(m.x,m.y-10,'+1',col(l.p),30);burst(m.x,m.y,{n:28,speed:6})},k*120)});
     const n=ls.length,bc=$('board').getBoundingClientRect(),mid={x:bc.left+bc.width/2,y:bc.top+bc.height/2};
-    const words=['おいしい！','もぐもぐ！','あまーい！','しあわせ〜'];
+    const words=EN?['Yummy!','Munch!','So sweet!','Bliss~']:['おいしい！','もぐもぐ！','あまーい！','しあわせ〜'];
     const gifted=gain.some((g,p)=>g&&p!==mover);
-    if(loved){const pt=centerOf(S.lastLove);setTimeout(()=>{text(pt.x,pt.y-34,'恋の力 +1',cssv('--p0'),30,90);burst(pt.x,pt.y,{n:30,speed:6,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']})},ls.length*120+150)}
-    text(mid.x,mid.y-bc.height*.18,loved?'ラブラブ！':n>=3?'トリプル！！':n===2?'ダブル！':gifted?'あげちゃった！':words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
+    if(loved){const pt=centerOf(S.lastLove);setTimeout(()=>{text(pt.x,pt.y-34,L('恋の力 +1','Love power +1'),cssv('--p0'),30,90);burst(pt.x,pt.y,{n:30,speed:6,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']})},ls.length*120+150)}
+    text(mid.x,mid.y-bc.height*.18,loved?L('ラブラブ！','Lovey-dovey!'):n>=3?L('トリプル！！','Triple!!'):n===2?L('ダブル！','Double!'):gifted?L('あげちゃった！','Gave it away!'):words[Math.floor(Math.random()*words.length)],n>=2?cssv('--gold'):col(ls[0].p),n>=2?40:32,85);
     if(n>=2)for(let k=0;k<n;k++)setTimeout(()=>burst(bc.left+bc.width*(.2+Math.random()*.6),bc.top+bc.height*(.2+Math.random()*.5),{n:40,speed:8}),k*150);
     sfx.yum(n);
     if(!r.winners.length)[1,2].map(d=>(mover+d)%3).filter(q=>!gain[q]).slice(0,1).forEach(q=>cpuReact(q,S.moves%2?'grr':'eh'));
@@ -753,7 +773,7 @@ function endTurn(){
   const r=R.next(C,S);
   if(r.over){finish(r.winners);return} // 時間切れ・誰も動けない：その時点の点数で決着
   S.turn=r.state.turn;if(C.party)S.box=r.state.box;S.busy=false; // わいわい：次の番に落ちてくるアイテム箱も受けとる
-  if(r.skipped.length){S.passMsg=`${r.skipped.map(nm).join('と')} は動けないのでパス`;sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
+  if(r.skipped.length){S.passMsg=L(`${r.skipped.map(nm).join('と')} は動けないのでパス`,`${r.skipped.map(nm).join(' and ')} can't move, so they pass`);sfx.pass();setTimeout(()=>{S.passMsg='';render()},1400)}
   render();roomPump();
 }
 function undo(){
@@ -857,12 +877,12 @@ function closePicker(){const d=$('picker');if(d)d.remove()}
 document.addEventListener('pointerdown',e=>{const d=$('picker');if(d&&!d.contains(e.target)&&!e.target.closest('button.icon'))d.remove()},true);
 function openPicker(p,anchor){
   if(DEMO)return;
-  if(inRoom()){if(!RV||RV.you!==p)return;if(RV.phase!=='lobby'){showToast('キャラは試合の前に選べます');return}}
+  if(inRoom()){if(!RV||RV.you!==p)return;if(RV.phase!=='lobby'){showToast(L('キャラは試合の前に選べます','You can pick a character before the game starts'));return}}
   if($('picker')&&$('picker').dataset.p==p){closePicker();return}
   closePicker();
   const taken=inRoom()?RV.seats.map((s,i)=>!s.empty&&i!==p?S.chars[i]:-1):[];
   const d=document.createElement('div');d.className='picker';d.id='picker';d.dataset.p=p;
-  d.innerHTML=`<p>${esc(S.names[p])} のキャラ</p><div>${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${S.chars[p]===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div>`;
+  d.innerHTML=`<p>${L(`${esc(S.names[p])} のキャラ`,`${EN&&S.names[p]==='You'?'Your':esc(S.names[p])+"'s"} character`)}</p><div>${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${S.chars[p]===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div>`;
   document.body.appendChild(d);
   const r=anchor.getBoundingClientRect(),w=d.offsetWidth;
   d.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2))+scrollX+'px';d.style.top=r.bottom+scrollY+8+'px';
@@ -876,12 +896,20 @@ function chooseChar(p,c){
   if(q>=0&&q!==p){S.chars[q]=old;rename(q,c,old)} // ほかの席と入れかわる
   rename(p,old,c);S.chars[p]=c;
   if(!S.cpu[p])saveChar(c);
-  gtag('event','char_pick',{c:CH[c].n,mode:'solo'});render();
+  gtag('event','char_pick',{c:CH[c].ja,mode:'solo'});render();
 }
 
 // ================= あそびかた（チュートリアル） =================
 // はじめて開いたときに「1分で遊び方を覚える？」と聞き、決めておいた盤で1手ずつやってもらう。いつでも「あそびかた」で見直せる
 // 盤は6×6（マス番号は 行×6＋列）。expect は、その手順でできる1手だけ。番は進めない（endTurn で止める）
+// 英語の手順（上と同じ順番。src・dst・after・say を置きかえる）
+const TSTEPS_EN=[
+  {src:'First, "place". Pick up a sweet from your hand…',dst:'Put it here!',after:'Yes! On your turn you do one thing: place, move, or swap'},
+  {src:'4 of the same sweet in a row get eaten for 1 point. Pick one up…',dst:'This makes 4 in a row!',after:'Munch munch… 1 point! Eaten sweets go back to your hand'},
+  {src:'Next, "move". Take one of your sweets on the board…',dst:'Move it to an adjacent empty square (diagonals OK)',after:'Nice! Even with an empty hand, you can still move sweets to make rows'},
+  {src:'You can also "swap". Take this sweet…',dst:"Bump it into the opponent's sweet next to it!",after:"The opponent's sweet you swapped with falls in love at first sight and enters \"love mode\" (heart eyes). Normal and love-mode sweets can't swap"},
+  {src:'A sweet put in love mode by an opponent is your secret weapon. Take this one…',dst:'Move it here to make a row and…?',after:"Love power +1! Plus the normal 1 point, that's 2! Your comeback card"},
+  {say:'First to 3 points wins. The other 2 players will try the same tricks. Now, take on the CPU!'}];
 const TSTEPS=[
   {src:'まずは「置く」。手持ちのお菓子をつまんで…',dst:'ここに置いてみて！',face:'hi',
    cells:{20:1,27:2},hands:[6,6,6],expect:{t:'place',to:14},after:'そう！ 自分の番には「置く・動かす・入れかえ」のどれか1つをするよ',afterFace:'nice'},
@@ -895,6 +923,7 @@ const TSTEPS=[
    cells:{25:0,26:0,27:0,22:0,15:1,9:2},fixed:[22],hands:[1,6,6],expect:{t:'move',from:22,to:28},after:'恋の力で＋1点！ ふつうの1点と合わせて2点！ 逆転の切り札だよ',afterFace:'nice'},
   {say:'先に3点取った人の勝ち。いっしょに遊ぶ2人も、同じことをしてくるよ。さあ、CPUと勝負しよう！',face:'hi',final:true},
 ];
+if(EN)TSTEPS_EN.forEach((e,i)=>Object.assign(TSTEPS[i],e));
 let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
 const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
 const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
@@ -926,7 +955,7 @@ addEventListener('resize',placeCoach);addEventListener('scroll',placeCoach,{pass
 $('status').addEventListener('click',e=>{if(e.target.id==='tutSkip')tutEnd(false)});
 function tutAsk(){ // はじめて開いたとき
   TUT={i:-1,phase:'ask'};
-  coachCenter('hi','はじめまして！ 1分で遊び方を覚えよう',[['あそびかたを見る',()=>tutStart('first')],['すぐ遊ぶ',()=>{tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'ask'});render()}]]);
+  coachCenter('hi',L('はじめまして！ 1分で遊び方を覚えよう','Hi there! Learn to play in 1 minute'),[[L('あそびかたを見る','Show me how'),()=>tutStart('first')],[L('すぐ遊ぶ','Just play'),()=>{tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'ask'});render()}]]);
 }
 function tutStart(where){
   closePicker();gtag('event','tutorial_start',{where});
@@ -941,13 +970,13 @@ function tutStep(){
     S.hands=st.hands.slice();S.fixed=(st.fixed||[]).slice();S.scores=[0,0,0];prevScores=[0,0,0];
     S.turn=0;S.moves=0;S.over=false;S.winners=[];S.busy=false;S.sel=null;S.eating=[];S.passMsg='';hist=[];
   }
-  if(st.final)coachCenter(st.face,st.say,[['CPUと勝負する！',()=>tutEnd(true)]]);
+  if(st.final)coachCenter(st.face,st.say,[[L('CPUと勝負する！','Play the CPU!'),()=>tutEnd(true)]]);
   render(); // 押す所を指す吹き出しは、tutMarks が出す
 }
 function tutDone(){ // 決めた1手ができた
   const st=TSTEPS[TUT.i];TUT.phase='done';
   $('coach').hidden=true;
-  setTimeout(()=>{if(!TUT)return;coachCenter(st.afterFace,st.after,[['次へ',()=>{TUT.i++;tutStep()}]]);render()},reduced?100:900);
+  setTimeout(()=>{if(!TUT)return;coachCenter(st.afterFace,st.after,[[L('次へ','Next'),()=>{TUT.i++;tutStep()}]]);render()},reduced?100:900);
   render();
 }
 function tutEnd(done){
@@ -1004,7 +1033,7 @@ let stampsKey='',lastStamp=0;
 function renderStamps(){
   const seat=stampSeat(),key=seat+'';if(key===stampsKey)return;stampsKey=key;
   const el=$('stamps');if(seat<0){el.innerHTML='';return}
-  el.innerHTML=STAMPS.map(([k,t])=>`<button type="button" data-k="${k}" aria-label="スタンプ「${t}」を送る">${stampSweet(seat,k)}${t}</button>`).join('');
+  el.innerHTML=STAMPS.map(([k,t])=>`<button type="button" data-k="${k}" aria-label="${L(`スタンプ「${t}」を送る`,`Send stamp: ${t}`)}">${stampSweet(seat,k)}${t}</button>`).join('');
 }
 $('stamps').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b)sendStamp(b.dataset.k)});
 function sendStamp(k){
@@ -1032,14 +1061,14 @@ function cpuReact(p,k,force){
 // 盤がずれたとき（つなぎ直した・自分の手がはねられた など）は、サーバーの盤に合わせる
 function onRoom(m){
   if(m.t==='open'){roomErr='';return}
-  if(m.t==='close'){if(!RV)roomErr='つながりません。リンクが正しいか、通信を確かめてください';render();return}
+  if(m.t==='close'){if(!RV)roomErr=L('つながりません。リンクが正しいか、通信を確かめてください',"Can't connect. Check the link and your connection");render();return}
   if(m.t==='stamp'){if(alive())showStamp(m.p,m.k);return}
-  if(m.t==='err')showToast(m.msg);
+  if(m.t==='err')showToast(EN&&ERR_EN[m.msg]||m.msg);
   if(!m.room)return;
-  if(m.left){const L=m.left,me=m.room.you===L.p;
-    if(L.why==='timeout')showToast(me?'時間切れ！この1手はCPUが打ちます':`${L.name} さんの時間切れ。この1手はCPUが打ちます`);
-    else if(L.why==='timeout2')showToast(`${L.name} さんが2回続けて時間切れになったので、CPUが代わりに打ちます`);
-    else if(!me)showToast(m.room.phase==='lobby'?`${L.name} さんが部屋を出ました`:`${L.name} さんが部屋を出たので、CPUが代わりに打ちます`)}
+  if(m.left){const lf=m.left,me=m.room.you===lf.p;
+    if(lf.why==='timeout')showToast(me?L('時間切れ！この1手はCPUが打ちます',"Time's up! The CPU plays this move"):L(`${lf.name} さんの時間切れ。この1手はCPUが打ちます`,`${lf.name} ran out of time. The CPU plays this move`));
+    else if(lf.why==='timeout2')showToast(L(`${lf.name} さんが2回続けて時間切れになったので、CPUが代わりに打ちます`,`${lf.name} ran out of time twice in a row, so the CPU takes over`));
+    else if(!me)showToast(m.room.phase==='lobby'?L(`${lf.name} さんが部屋を出ました`,`${lf.name} left the room`):L(`${lf.name} さんが部屋を出たので、CPUが代わりに打ちます`,`${lf.name} left, so the CPU takes over`))}
   RV=m.room;rvAt=Date.now();if(m.move)moveQ.push(m.move);
   roomPump(m.t==='err');
 }
@@ -1091,7 +1120,7 @@ let leaveArmed=0;
 $('leave').addEventListener('click',()=>{
   const b=$('leave');
   if(!RV||RV.you<0){location.href='./';return}
-  if(Date.now()-leaveArmed>3000){leaveArmed=Date.now();b.textContent=RV.phase==='playing'?'本当に出る？（席はCPUに）もう一度押す':'本当に出る？もう一度押す';setTimeout(()=>{if(Date.now()-leaveArmed>=3000)b.textContent='部屋を出る'},3100);return}
+  if(Date.now()-leaveArmed>3000){leaveArmed=Date.now();b.textContent=RV.phase==='playing'?L('本当に出る？（席はCPUに）もう一度押す','Really leave? (CPU takes your seat) Press again'):L('本当に出る？もう一度押す','Really leave? Press again');setTimeout(()=>{if(Date.now()-leaveArmed>=3000)b.textContent=L('部屋を出る','Leave room')},3100);return}
   gtag('event','room_leave',{phase:RV.phase});OkashiRoom.send({t:'leave'});setTimeout(()=>{location.href='./'},400);
 });
 function roomCpu(){ // CPU の手は、座っている人のうち係の人（cpuDriver）だけが考えて送る
@@ -1103,37 +1132,37 @@ function roomCpu(){ // CPU の手は、座っている人のうち係の人（cp
 }
 function roomAgainHTML(){
   const n=RV.seats.filter(s=>!s.empty).length,me=RV.seats[RV.you];
-  if(!me)return '<a class="btn primary" href="./">ひとりで遊ぶ</a>';
+  if(!me)return `<a class="btn primary" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`;
   const k=RV.seats.filter(s=>s.voted).length;
-  return (me.voted?`<button class="btn primary" id="again" type="button" disabled>みんなを待っています（${k}/${n}）</button>`
-    :`<button class="btn primary" id="again" type="button">${n>1?`この${n}人でもう一回`:'もう一回'}${k?`（${k}/${n}）`:''}</button>`)
-    +'<a class="btn" href="./">ひとりで遊ぶ</a>';
+  return (me.voted?`<button class="btn primary" id="again" type="button" disabled>${L('みんなを待っています','Waiting for everyone')}（${k}/${n}）</button>`
+    :`<button class="btn primary" id="again" type="button">${n>1?L(`この${n}人でもう一回`,`Play again with these ${n}`):L('もう一回','Play again')}${k?`（${k}/${n}）`:''}</button>`)
+    +`<a class="btn" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`;
 }
 const myName=()=>{try{return localStorage.getItem('mataasobo-name')||''}catch(e){return ''}};
 const saveName=v=>{try{localStorage.setItem('mataasobo-name',v)}catch(e){}};
 async function makeRoom(where){
-  gtag('event','room_create',{where});showToast('部屋を作っています…');
-  try{const id=await OkashiRoom.create(myName()||'ゲスト',favChar());location.href='?room='+id}
-  catch(e){showToast('部屋を作れませんでした。少し時間をおいて、もう一度ためしてください')}
+  gtag('event','room_create',{where});showToast(L('部屋を作っています…','Making a room…'));
+  try{const id=await OkashiRoom.create(myName()||L('ゲスト','Guest'),favChar());location.href='?room='+id}
+  catch(e){showToast(L('部屋を作れませんでした。少し時間をおいて、もう一度ためしてください',"Couldn't make a room. Please wait a bit and try again"))}
 }
 // 部屋の一覧（「みんなと遊ぶ」）。開いているあいだ5秒ごとに取りなおす
 let roomsOpen=false,roomsList=null,roomsErr='',roomsTimer=null,roomsHTML='';
 function openRooms(where){
   if(TUT){if(TUT.phase==='ask'){tutMark();TUT=null;$('coach').hidden=true;gtag('event','tutorial_skip',{at:'rooms'})}else tutEnd(false)} // あそびかたは閉じる
   gtag('event','rooms_open',{where});roomsOpen=true;roomsList=null;roomsErr='';render();
-  const load=()=>OkashiRoom.list().then(r=>{roomsList=r;roomsErr=''},()=>{roomsErr='一覧を取れませんでした。通信を確かめてください'}).finally(()=>{if(roomsOpen){render();roomsTimer=setTimeout(load,5000)}});
+  const load=()=>OkashiRoom.list().then(r=>{roomsList=r;roomsErr=''},()=>{roomsErr=L('一覧を取れませんでした。通信を確かめてください',"Couldn't load the room list. Check your connection")}).finally(()=>{if(roomsOpen){render();roomsTimer=setTimeout(load,5000)}});
   clearTimeout(roomsTimer);load();
 }
 function closeRooms(){roomsOpen=false;clearTimeout(roomsTimer);render()}
 function renderRooms(){
   const el=$('rooms');
   if(!roomsOpen||inRoom()){el.hidden=true;roomsHTML='';return}
-  const tag=r=>r.phase==='lobby'?'<span class="tag wait">人待ち</span>':r.open?'<span class="tag join">途中参加OK</span>':r.phase==='over'?'<span class="tag">終わったところ</span>':'<span class="tag">対戦中</span>';
-  const seat=(s,i,r)=>`<span style="color:${CH[(r.chars||[0,1,2])[i]].c}">${s?esc(s.name)+(s.online?'':'（るす）'):'あき'}</span>`;
-  const rows=roomsList===null?`<p class="note">${esc(roomsErr||'さがしています…')}</p>`
-    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${esc((r.seats[0]||{name:'だれか'}).name)} の部屋<small style="color:var(--muted);margin-left:6px">${PRESETS[r.rule||'normal']?PRESETS[r.rule||'normal'].n:'ふつう'}${r.limit?`・1手${r.limit}秒`:''}</small></span>${tag(r)}<span class="seatsm">${r.seats.map((s,i)=>seat(s,i,r)).join('<span>・</span>')}</span></a>`).join('')
-    :'<p class="note">まだ部屋がありません。作って待ってみよう</p>';
-  const h=`<div class="card"><h2>みんなと遊ぶ</h2><button class="btn primary" id="mkroom" type="button">＋ 部屋を作る</button><div class="roomlist">${rows}</div><p class="note">部屋をえらぶと、空いている席に参加できます。リンクを送って友達を呼ぶこともできます</p><button class="btn" id="closeRooms" type="button">とじる</button></div>`;
+  const tag=r=>r.phase==='lobby'?`<span class="tag wait">${L('人待ち','Waiting')}</span>`:r.open?`<span class="tag join">${L('途中参加OK','Join in')}</span>`:r.phase==='over'?`<span class="tag">${L('終わったところ','Just ended')}</span>`:`<span class="tag">${L('対戦中','Playing')}</span>`;
+  const seat=(s,i,r)=>`<span style="color:${CH[(r.chars||[0,1,2])[i]].c}">${s?esc(s.name)+(s.online?'':L('（るす）',' (away)')):L('あき','Open')}</span>`;
+  const rows=roomsList===null?`<p class="note">${esc(roomsErr||L('さがしています…','Searching…'))}</p>`
+    :roomsList.length?roomsList.map(r=>`<a class="roomrow" href="?room=${r.id}"><span class="who">${L(`${esc((r.seats[0]||{name:'だれか'}).name)} の部屋`,`${esc((r.seats[0]||{name:'Someone'}).name)}'s room`)}<small style="color:var(--muted);margin-left:6px">${PRESETS[r.rule||'normal']?PRESETS[r.rule||'normal'].n:L('ふつう','Normal')}${r.limit?L(`・1手${r.limit}秒`,` · ${r.limit}s per move`):''}</small></span>${tag(r)}<span class="seatsm">${r.seats.map((s,i)=>seat(s,i,r)).join('<span>・</span>')}</span></a>`).join('')
+    :`<p class="note">${L('まだ部屋がありません。作って待ってみよう','No rooms yet. Make one and wait for others')}</p>`;
+  const h=`<div class="card"><h2>${L('みんなと遊ぶ','Play online')}</h2><button class="btn primary" id="mkroom" type="button">${L('＋ 部屋を作る','+ Make a room')}</button><div class="roomlist">${rows}</div><p class="note">${L('部屋をえらぶと、空いている席に参加できます。リンクを送って友達を呼ぶこともできます','Pick a room to take an open seat. You can also send a link to invite friends')}</p><button class="btn" id="closeRooms" type="button">${L('とじる','Close')}</button></div>`;
   if(h===roomsHTML&&!el.hidden)return;
   roomsHTML=h;el.innerHTML=h;el.hidden=false;
   $('mkroom').addEventListener('click',()=>makeRoom('rooms'));$('closeRooms').addEventListener('click',closeRooms);
@@ -1144,35 +1173,35 @@ function renderLobby(){
   const el=$('lobby');
   if(!inRoom()||(RV&&RV.phase!=='lobby'&&(RV.you>=0||watching))){el.hidden=true;lobbyHTML='';return}
   let h;
-  if(!RV)h=`<div class="card"><h2>${roomErr?'部屋が見つかりません':'部屋につないでいます…'}</h2>${roomErr?`<p class="note">${esc(roomErr)}</p><a class="btn primary" href="./">ひとりで遊ぶ</a>`:''}</div>`;
+  if(!RV)h=`<div class="card"><h2>${roomErr?L('部屋が見つかりません','Room not found'):L('部屋につないでいます…','Connecting to the room…')}</h2>${roomErr?`<p class="note">${esc(roomErr)}</p><a class="btn primary" href="./">${L('ひとりで遊ぶ','Play solo')}</a>`:''}</div>`;
   else{
     const url=location.origin+location.pathname+'?room='+RV.id,you=RV.you,lobby=RV.phase==='lobby';
-    const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?(lobby?'あき（始めたらCPU）':'CPU'):esc(s.name)+(i===you?'（あなた）':'')}</span><span class="on${s.online?' y':''}">${s.empty?(lobby?'<span class="waiting">待っています…</span>':''):s.online?'● いる':'るす'}</span></div>`).join('');
+    const seats=RV.seats.map((s,i)=>`<div class="seat">${sweet(i,'')}<span class="nm${s.empty?' empty':''}">${s.empty?(lobby?L('あき（始めたらCPU）','Open (CPU once started)'):'CPU'):esc(s.name)+(i===you?L('（あなた）',' (you)'):'')}</span><span class="on${s.online?' y':''}">${s.empty?(lobby?`<span class="waiting">${L('待っています…','waiting…')}</span>`:''):s.online?L('● いる','● here'):L('るす','away')}</span></div>`).join('');
     const mine=you>=0?S.chars[you]:favChar(),taken=RV.seats.map((s,i)=>!s.empty&&i!==you?S.chars[i]:-1);
-    const charRow=lobby?`<label>あなたのキャラ<div class="charrow">${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${mine===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div></label>`:'';
-    const nameBox=`<label>あなたの名前<input id="myName" maxlength="8" placeholder="なまえ" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`+charRow;
+    const charRow=lobby?`<label>${L('あなたのキャラ','Your character')}<div class="charrow">${CH.map((c,i)=>`<button type="button" data-c="${i}" class="${mine===i?'on':''}" style="--c:${c.c}"${taken.includes(i)?' disabled':''}>${charSvg(i)}<span>${c.n}</span></button>`).join('')}</div></label>`:'';
+    const nameBox=`<label>${L('あなたの名前','Your name')}<input id="myName" maxlength="8" placeholder="${L('なまえ','name')}" value="${esc(you>=0?RV.seats[you].name:myName())}"></label>`+charRow;
     let body;
     if(you>=0){
       const msg='おかしならべで遊ぼ！ '+url;
-      body=nameBox+`<label>① このリンクを友達に送る<div class="invite"><input id="inv" readonly value="${esc(url)}"><button class="btn" id="copy" type="button">コピー</button></div></label>
-        <div class="btnrow"><a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a>${navigator.share?'<button class="btn" id="share" type="button">ほかの方法で送る</button>':''}</div>`
-        +'<p class="note">② 友達がリンクを開いて「参加する」を押すと、上に名前が出ます</p>'
-        +`<label>ルール${you===0?'':'（部屋を作った人が決めます）'}<div class="presets">${Object.keys(PRESETS).map(k=>`<button type="button" data-rule="${k}" class="${RV.rule===k?'on':''}"${you===0?'':' disabled'}>${PRESETS[k].n}</button>`).join('')}</div></label>`
-        +`<label>1手の持ち時間${you===0?'':'（部屋を作った人が決めます）'}<div class="limits">${[30,60,90].map(t=>`<button type="button" data-sec="${t}" class="${RV.limit===t?'on':''}"${you===0?'':' disabled'}>${t}秒</button>`).join('')}</div></label>`
-        +(you===0?`<label class="check"><input type="checkbox" id="listed"${RV.listed?' checked':''}>「みんなと遊ぶ」の一覧に出す（だれでも参加できる）</label>`:'')
-        +(you===0?'<button class="btn primary" id="go" type="button">③ はじめる</button><p class="note">そろわなくても始められます。空いた席にはCPUが入り、始めたあとも友達はCPUの席と交代して途中から入れます</p>'
-          :`<p class="note">③ ${esc(RV.seats[0].name)} さんが「はじめる」を押すのを待っています</p>`);
+      body=nameBox+`<label>${L('① このリンクを友達に送る','① Send this link to friends')}<div class="invite"><input id="inv" readonly value="${esc(url)}"><button class="btn" id="copy" type="button">${L('コピー','Copy')}</button></div></label>
+        <div class="btnrow">${EN?'':`<a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a>`}${navigator.share?`<button class="btn" id="share" type="button">${L('ほかの方法で送る','Share another way')}</button>`:''}</div>`
+        +`<p class="note">${L('② 友達がリンクを開いて「参加する」を押すと、上に名前が出ます','② When a friend opens the link and presses "Join", their name appears above')}</p>`
+        +`<label>${L('ルール','Rules')}${you===0?'':L('（部屋を作った人が決めます）',' (the host decides)')}<div class="presets">${Object.keys(PRESETS).map(k=>`<button type="button" data-rule="${k}" class="${RV.rule===k?'on':''}"${you===0?'':' disabled'}>${PRESETS[k].n}</button>`).join('')}</div></label>`
+        +`<label>${L('1手の持ち時間','Time per move')}${you===0?'':L('（部屋を作った人が決めます）',' (the host decides)')}<div class="limits">${[30,60,90].map(t=>`<button type="button" data-sec="${t}" class="${RV.limit===t?'on':''}"${you===0?'':' disabled'}>${t}${L('秒','s')}</button>`).join('')}</div></label>`
+        +(you===0?`<label class="check"><input type="checkbox" id="listed"${RV.listed?' checked':''}>${L('「みんなと遊ぶ」の一覧に出す（だれでも参加できる）','List in "Play online" (anyone can join)')}</label>`:'')
+        +(you===0?`<button class="btn primary" id="go" type="button">${L('③ はじめる','③ Start')}</button><p class="note">${L('そろわなくても始められます。空いた席にはCPUが入り、始めたあとも友達はCPUの席と交代して途中から入れます','You can start without a full room. Empty seats get the CPU, and friends can take over a CPU seat mid-game')}</p>`
+          :`<p class="note">${L(`③ ${esc(RV.seats[0].name)} さんが「はじめる」を押すのを待っています`,`③ Waiting for ${esc(RV.seats[0].name)} to press "Start"`)}</p>`);
     }else if(RV.seats.some(s=>s.empty))body=lobby
-      ?`<p class="note">${esc(RV.seats[0].name)} さんの部屋に招待されました</p>`+nameBox+'<button class="btn primary" id="join" type="button">参加する</button>'
-      :`<p class="note">${RV.kicked?'時間切れが続いたので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます':'もう試合が始まっています。CPUの席と交代して、途中から参加できます'}</p>`+nameBox
-        +'<div class="btnrow"><button class="btn primary" id="join" type="button">CPUと交代して参加する</button><button class="btn" id="watch" type="button">見るだけ</button></div>';
-    else body=`<p class="note">この部屋は満員です${lobby?'':'。試合を見ることはできます'}</p><div class="btnrow">${lobby?'':'<button class="btn primary" id="watch" type="button">見るだけ</button>'}<a class="btn" href="./">ひとりで遊ぶ</a></div>`;
+      ?`<p class="note">${L(`${esc(RV.seats[0].name)} さんの部屋に招待されました`,`You've been invited to ${esc(RV.seats[0].name)}'s room`)}</p>`+nameBox+`<button class="btn primary" id="join" type="button">${L('参加する','Join')}</button>`
+      :`<p class="note">${RV.kicked?L('時間切れが続いたので、CPUが代わりに打っています。CPUと交代すれば、続きから遊べます','You timed out repeatedly, so the CPU is playing for you. Take over from the CPU to keep playing'):L('もう試合が始まっています。CPUの席と交代して、途中から参加できます','The game has already started. You can take over a CPU seat and join mid-game')}</p>`+nameBox
+        +`<div class="btnrow"><button class="btn primary" id="join" type="button">${L('CPUと交代して参加する','Take over from the CPU')}</button><button class="btn" id="watch" type="button">${L('見るだけ','Just watch')}</button></div>`;
+    else body=`<p class="note">${L('この部屋は満員です','This room is full')}${lobby?'':L('。試合を見ることはできます','. You can still watch')}</p><div class="btnrow">${lobby?'':`<button class="btn primary" id="watch" type="button">${L('見るだけ','Just watch')}</button>`}<a class="btn" href="./">${L('ひとりで遊ぶ','Play solo')}</a></div>`;
     // 今の状態を、いちばん上に大きく出す（人待ちだと分かるように）
     const n=RV.seats.filter(s=>!s.empty).length,host=(RV.seats[0]&&RV.seats[0].name)||'';
     const status=!lobby?'':you===0
-      ?`<div class="waitbox"><b>⏳ 友達を待っています（${n}/3人）</b><span>下のリンクを送って呼ぼう。そろわなくても始められて、始めたあとも友達は途中から入れます</span></div>`
-      :you>0?`<div class="waitbox"><b>⏳ ${esc(host)} さんが始めるのを待っています（${n}/3人）</b><span>そろったら、${esc(host)} さんが「はじめる」を押します</span></div>`:'';
-    h=`<div class="card"><h2>${lobby?'友達と遊ぶ':'試合中です'}</h2>${status}<div class="seats">${seats}</div>${body}</div>`;
+      ?`<div class="waitbox"><b>${L(`⏳ 友達を待っています（${n}/3人）`,`⏳ Waiting for friends (${n}/3)`)}</b><span>${L('下のリンクを送って呼ぼう。そろわなくても始められて、始めたあとも友達は途中から入れます','Send the link below to invite them. You can start without a full room, and friends can still join mid-game')}</span></div>`
+      :you>0?`<div class="waitbox"><b>${L(`⏳ ${esc(host)} さんが始めるのを待っています（${n}/3人）`,`⏳ Waiting for ${esc(host)} to start (${n}/3)`)}</b><span>${L(`そろったら、${esc(host)} さんが「はじめる」を押します`,`When everyone's here, ${esc(host)} will press "Start"`)}</span></div>`:'';
+    h=`<div class="card"><h2>${lobby?L('友達と遊ぶ','Play with friends'):L('試合中です','Game in progress')}</h2>${status}<div class="seats">${seats}</div>${body}</div>`;
   }
   if(h===lobbyHTML&&!el.hidden)return; // 同じなら描き直さない（入力中の名前が消えないように）
   const focused=document.activeElement&&document.activeElement.id==='myName',typed=focused?document.activeElement.value:null;
@@ -1181,14 +1210,14 @@ function renderLobby(){
     nb.addEventListener('input',()=>saveName(nb.value.trim()));
     nb.addEventListener('change',()=>{const v=nb.value.trim();saveName(v);if(RV&&RV.you>=0&&v)OkashiRoom.send({t:'join',name:v})})}
   const on=(id,f)=>{const b=$(id);if(b)b.addEventListener('click',f)};
-  on('copy',()=>{const i=$('inv');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>showToast('コピーしました'),()=>{document.execCommand('copy');showToast('コピーしました')})});
-  on('share',()=>navigator.share({title:'おかしならべ',text:'おかしならべで遊ぼ！',url:$('inv').value}).catch(()=>{}));
+  on('copy',()=>{const i=$('inv');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>showToast(L('コピーしました','Copied')),()=>{document.execCommand('copy');showToast(L('コピーしました','Copied'))})});
+  on('share',()=>navigator.share({title:L('おかしならべ','Sweets in a Row'),text:L('おかしならべで遊ぼ！',"Let's play Sweets in a Row!"),url:$('inv').value}).catch(()=>{}));
   on('go',()=>{gtag('event','room_start',{seated:RV.seats.filter(s=>!s.empty).length});OkashiRoom.send({t:'start'})});
   on('watch',()=>{watching=true;render()});
   el.querySelectorAll('.presets button[data-rule]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'rule',rule:b.dataset.rule})}));
   el.querySelectorAll('.limits button[data-sec]').forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)OkashiRoom.send({t:'limit',sec:+b.dataset.sec})}));
   const ls=$('listed');if(ls)ls.addEventListener('change',()=>OkashiRoom.send({t:'listed',on:ls.checked}));
-  on('join',()=>{const v=($('myName').value||'').trim()||'ゲスト';saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v,char:favChar()})});
+  on('join',()=>{const v=($('myName').value||'').trim()||L('ゲスト','Guest');saveName(v);gtag('event','room_join');OkashiRoom.send({t:'join',name:v,char:favChar()})});
   el.querySelectorAll('.charrow button[data-c]').forEach(b=>b.addEventListener('click',()=>{const c=+b.dataset.c;
     if(RV.you>=0){chooseChar(RV.you,c)}else{saveChar(c);lobbyHTML='';renderLobby()}}));
 }
@@ -1210,7 +1239,7 @@ function demoScore(r){ // 勝った人の恋ボーナスが、決勝点で、し
 }
 function demoStart(){
   if(!alive())return;
-  newGame(true);demoMsg='いい試合をさがし中…';render();
+  newGame(true);demoMsg=L('いい試合をさがし中…','Finding a good game…');render();
   const t0=performance.now();let best=null,bs=-1,n=0;
   const batch=()=>{if(!alive())return;
     const t1=performance.now();do{const r=demoSim(),v=demoScore(r);n++;if(v>bs){bs=v;best=r}}while(performance.now()-t1<50); // 画面が固まらないよう50msずつ
@@ -1225,7 +1254,7 @@ function demoReplay(log){
     if(S.over){setTimeout(demoStart,6000);return}
     if(S.busy){setTimeout(step,120);return}
     const x=log[i++];if(!x||S.turn!==x.p){setTimeout(demoStart,1000);return} // 記録とずれたら、次の試合へ
-    demoMsg=x.love?`${nm(x.p)} の<b style="color:#ff2f6d">恋モード</b>のお菓子が動く…！`:'';render();
+    demoMsg=x.love?L(`${nm(x.p)} の<b style="color:#ff2f6d">恋モード</b>のお菓子が動く…！`,`${whose(x.p)} <b style="color:#ff2f6d">love-mode</b> sweet is moving…!`):'';render();
     const think=x.love?1800:550; // 恋ボーナスの手は「ため」を長くする
     if(x.a.t!=='place')setTimeout(()=>{const el=$('pc'+x.a.from);if(el)el.classList.add('sel');sfx.pick()},think-400);
     setTimeout(()=>{if(alive()&&!S.busy&&!S.over){doAct(x.a);setTimeout(step,150)}},think)};
@@ -1251,30 +1280,30 @@ function renderInvite(){
   btn.hidden=!can;el.hidden=!(can&&inviteOpen);
   if(el.hidden||el.childElementCount)return;
   const url=location.origin+location.pathname+'?room='+RV.id,msg='おかしならべで遊んでるよ！CPUの席と交代して入ってきて '+url;
-  el.innerHTML=`<p class="note">空いた席（CPU）に、友達が<b>途中から交代して</b>入れます。このリンクを送ってね。</p>
-    <div class="invite"><input id="inv2" readonly value="${esc(url)}"><button class="btn" id="copy2" type="button">コピー</button></div>
-    <div class="btnrow"><a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a></div>`;
-  $('copy2').addEventListener('click',()=>{const i=$('inv2');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>showToast('コピーしました'),()=>{document.execCommand('copy');showToast('コピーしました')})});
+  el.innerHTML=`<p class="note">${L('空いた席（CPU）に、友達が<b>途中から交代して</b>入れます。このリンクを送ってね。','Friends can <b>take over</b> an empty (CPU) seat mid-game. Send them this link.')}</p>
+    <div class="invite"><input id="inv2" readonly value="${esc(url)}"><button class="btn" id="copy2" type="button">${L('コピー','Copy')}</button></div>
+    ${EN?'':`<div class="btnrow"><a class="btn" href="https://line.me/R/share?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">LINEで送る</a></div>`}`;
+  $('copy2').addEventListener('click',()=>{const i=$('inv2');i.select();(navigator.clipboard?navigator.clipboard.writeText(i.value):Promise.reject()).then(()=>showToast(L('コピーしました','Copied')),()=>{document.execCommand('copy');showToast(L('コピーしました','Copied'))})});
 }
 $('invite').addEventListener('click',()=>{inviteOpen=!inviteOpen;gtag('event','room_invite_open');renderInvite()});
 function showToast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},4000)}
 // ルール3つ（サーバーの RULES と同じ中身）。細かい設定がどれとも同じでなければ「自分で決めたルール」
-const PRESETS={normal:{n:'ふつう',size:6,need:4,hand:'auto',target:3,love:'on',note:'6×6・4つ並べ・手持ち6・3点先取'},
-  quick:{n:'さくっと',size:6,need:4,hand:'7',target:2,love:'on',note:'手持ち7・2点先取。短く、はじめての人も勝ちやすい'},
-  deep:{n:'じっくり',size:7,need:4,hand:'auto',target:3,love:'on',note:'7×7・3点先取。上手い人どうしでも決着がつきやすい'},
-  party:{n:'わいわい',size:6,need:4,hand:'auto',target:3,love:'on',party:'on',note:'ふつう＋アイテム。🎁を拾って、ふつうの1手の前に使える'}};
+const PRESETS={normal:{n:L('ふつう','Normal'),size:6,need:4,hand:'auto',target:3,love:'on',note:L('6×6・4つ並べ・手持ち6・3点先取','6×6 · 4 in a row · hand of 6 · first to 3')},
+  quick:{n:L('さくっと','Quick'),size:6,need:4,hand:'7',target:2,love:'on',note:L('手持ち7・2点先取。短く、はじめての人も勝ちやすい','Hand of 7 · first to 2. Short, and easier for beginners to win')},
+  deep:{n:L('じっくり','Long'),size:7,need:4,hand:'auto',target:3,love:'on',note:L('7×7・3点先取。上手い人どうしでも決着がつきやすい','7×7 · first to 3. Games finish even between strong players')},
+  party:{n:L('わいわい','Party'),size:6,need:4,hand:'auto',target:3,love:'on',party:'on',note:L('ふつう＋アイテム。🎁を拾って、ふつうの1手の前に使える','Normal + items. Pick up 🎁 and use it before your normal move')}};
 function presetNow(){return Object.keys(PRESETS).find(k=>{const p=PRESETS[k];return +$('size').value===p.size&&+$('need').value===p.need&&$('handcount').value===p.hand&&+$('target').value===p.target&&$('love').value===p.love&&$('party').value===(p.party||'off')})||null}
 function markPreset(){const k=presetNow();document.querySelectorAll('.presets [data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===k));
   let n=document.querySelector('.controls .rulenote');if(!n){n=document.createElement('p');n.className='rulenote';document.querySelector('.presets').after(n)}
-  n.textContent=k?PRESETS[k].note:'自分で決めたルール'}
+  n.textContent=k?PRESETS[k].note:L('自分で決めたルール','Custom rules')}
 document.querySelector('.controls .presets').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;const p=PRESETS[b.dataset.p];
   $('size').value=p.size;$('need').value=p.need;$('handcount').value=p.hand;$('target').value=p.target;$('love').value=p.love;$('party').value=p.party||'off';
   gtag('event','rule_pick',{rule:b.dataset.p});newGame(false);markPreset()});
 ['size','need','handcount','target','love','party'].forEach(id=>$(id).addEventListener('change',markPreset));
-function setRules(){$('ruleNeed').textContent=`${S.need}つ並ぶと食べられて1点`;$('ruleMore').textContent=`${S.need+1}つ並びは2点。`;$('ruleLove').hidden=!S.loveBonus;$('ruleParty').hidden=!S.party}
+function setRules(){$('ruleNeed').textContent=L(`${S.need}つ並ぶと食べられて1点`,`${S.need} of the same sweet to eat them for 1 point`);$('ruleMore').textContent=L(`${S.need+1}つ並びは2点。`,`${S.need+1} in a row is 2 points.`);$('ruleLove').hidden=!S.loveBonus;$('ruleParty').hidden=!S.party}
 ['size','need','target','handcount','love','party'].forEach(id=>$(id).addEventListener('change',()=>newGame(false)));
 $('level').addEventListener('change',()=>{S.level=$('level').value}); // 強さはゲームの途中でも変えられる
-$('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?'音 ON':'音 OFF';$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
+$('sound').addEventListener('click',()=>{soundOn=!soundOn;$('sound').textContent=soundOn?L('音 ON','Sound ON'):L('音 OFF','Sound OFF');$('sound').setAttribute('aria-pressed',soundOn);if(soundOn)sfx.pick()});
 function start(data){
   if(data&&data.S&&data.S.hands&&data.S.need)try{Object.assign(S,JSON.parse(JSON.stringify(data.S)));hist=data.hist?JSON.parse(JSON.stringify(data.hist)):[]}catch(e){}
   S.busy=false;S.eating=[];S.sel=null;S.passMsg='';if(!Array.isArray(S.fixed))S.fixed=[];
