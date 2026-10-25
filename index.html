@@ -970,7 +970,7 @@ const TAP=(()=>{const q=new URLSearchParams(location.search);
 const SLOW=(()=>{const q=new URLSearchParams(location.search);
   if(q.has('slow')){const on=q.get('slow')!=='0';try{localStorage.setItem('ok-slow',on?'1':'0')}catch(e){}return on}
   try{return localStorage.getItem('ok-slow')==='1'}catch(e){return false}})();
-const SP=SLOW?{fly:520,hop:450,next:640,think:1000,pick:650}:{fly:280,hop:280,next:380,think:650,pick:380};
+const SP=SLOW?{fly:460,hop:450,next:580,think:1000,pick:650}:{fly:280,hop:280,next:380,think:650,pick:380};
 let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
 const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
 const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
