@@ -698,6 +698,7 @@ function doAct(a,fromRect,fromServer){
         text(pt.x,pt.y-28,L('ドキッ','Swoon!'),cssv('--p0'),24,60);if(S.moves%2===0)cpuReact(a.victim,'doki');burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
+  else if(SLOW&&(a.t==='place'||a.t==='move'))setTimeout(()=>sfx.drop(p),(a.t==='place'?SP.fly:SP.hop)*.8);   // ?slow：音は着地（つぶれる瞬間）に合わせる
   else sfx.drop(p);
   setTimeout(()=>resolve(p),SW?SW+180:SP.next);
 }
