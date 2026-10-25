@@ -639,7 +639,7 @@ function render(){
   applyChars();renderPlayers();renderStatus();renderBoard();renderResult();renderLobby();renderRooms();renderStamps();renderInvite();tutMarks();
   if(inRoom()){const g=L('おかしならべ','Sweets in a Row');document.title=RV&&RV.phase==='playing'&&!S.over&&S.turn===RV.you?L('★あなたの番！ ','★Your turn! ')+g:RV&&RV.phase==='lobby'&&RV.you>=0?L('（人待ち）','(waiting) ')+g:g}
   clearTimeout(cpuTimer);cpuPending=false;
-  if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},650)}
+  if(!S.over&&!S.busy&&S.cpu[S.turn]){cpuPending=true;const mv=S.moves;cpuTimer=setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.cpu[S.turn]&&S.moves===mv)cpuTurn()},SP.think)}
 }
 setInterval(()=>{if(alive()&&!S.over&&!S.busy&&S.cpu[S.turn]&&!cpuPending)render()},1500);
 
@@ -663,12 +663,23 @@ function doAct(a,fromRect,fromServer){
   render();
   if(r.picked){const cr=$('pl'+p).getBoundingClientRect(),info=ITEM_INFO[r.picked];setTimeout(()=>{text(cr.left+cr.width/2,cr.bottom-14,L(`${info.e} ${info.n} ゲット！`,`${info.e} Got ${info.n}!`),col(p),20,80);[988,1319].forEach((f,k)=>tone(f,.12,{type:'triangle',vol:.1,delay:k*.08}))},300)}
   // 動いた駒をなめらかに運ぶ
-  const fly=(i,from)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
-    el.animate([{transform:`translate(${from.left+from.width/2-(to.left+to.width/2)}px,${from.top+from.height/2-(to.top+to.height/2)}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:280,easing:'cubic-bezier(.3,1.35,.5,1)'})};
-  if(a.t==='place')fly(a.to,fromRect||trayRect());
-  else if(a.t==='move')fly(a.to,fromRect||srcRects.from);
+  const fly=(i,from,dur)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
+    const dx=from.left+from.width/2-(to.left+to.width/2),dy=from.top+from.height/2-(to.top+to.height/2);
+    if(!SLOW||reduced){el.animate([{transform:`translate(${dx}px,${dy}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:dur,easing:'cubic-bezier(.3,1.35,.5,1)'});return}
+    // ?slow：ぴょんと弧を描いて飛び、着地で「むにっ」とつぶれて戻る。着地のところに粉がふわっと
+    const h=Math.min(90,26+Math.hypot(dx,dy)*.22);
+    el.style.position='relative';el.style.zIndex=5;
+    el.animate([
+      {offset:0,  transform:`translate(${dx}px,${dy}px) scale(1.05)`,easing:'cubic-bezier(.2,.6,.4,1)'},
+      {offset:.48,transform:`translate(${dx*.45}px,${dy*.45-h}px) scale(1.15)`,easing:'cubic-bezier(.6,0,.8,.4)'},
+      {offset:.8, transform:'translate(0,0) scale(1.28,.72)',easing:'ease-out'},
+      {offset:.9, transform:'scale(.9,1.12)'},
+      {offset:1,  transform:'none'}],{duration:dur});
+    setTimeout(()=>{el.style.position='';el.style.zIndex='';const c=centerOf(i);burst(c.x,c.y+to.height*.3,{n:8,speed:2.2,colors:['#fff','#f3d6c4',col(p)],kinds:['dot'],grav:.05,life:26})},dur*.8)};
+  if(a.t==='place')fly(a.to,fromRect||trayRect(),SP.fly);
+  else if(a.t==='move')fly(a.to,fromRect||srcRects.from,SP.hop);
   const SW=a.t==='swap'?swapAnim(a,p,fromRect,srcRects):0; // 入れかえはぶつかって弧を描いて交換（ms）
-  setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},SW||(reduced?0:260));
+  if(!SLOW||SW)setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},SW||(reduced?0:SP.fly-20));   // ?slow の置く・動かすは、飛ぶ動きの中でつぶれるので、land はつけない
   if(a.t==='swap'){setTimeout(()=>{
       // 着地したら、ぶつけられたお菓子の顔とマスを新しいモードに切りかえる
       const vc=$('c'+a.from),vp=$('pc'+a.from);
@@ -684,7 +695,7 @@ function doAct(a,fromRect,fromServer){
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
   else sfx.drop(p);
-  setTimeout(()=>resolve(p),SW?SW+180:(reduced?120:380));
+  setTimeout(()=>resolve(p),SW?SW+180:(reduced?120:SP.next));
 }
 // 入れかえアニメ：自分のお菓子が助走をつけて体当たり → 相手がはじかれて、2つが弧を描いてすれちがう
 function swapAnim(a,p,dropRect,src){
@@ -876,7 +887,7 @@ function cpuTurn(){
   const p=S.turn,best=CPU.choose(C,S,p,S.level);if(!best){endTurn();return}
   if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
     const mv=S.moves;cpuPending=true;
-    setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:380)}
+    setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:SP.pick)}
   else doAct(best);
 }
 
@@ -949,6 +960,12 @@ if(EN)TSTEPS_EN.forEach((e,i)=>Object.assign(TSTEPS[i],e));
 const TAP=(()=>{const q=new URLSearchParams(location.search);
   if(q.has('tap')){const on=q.get('tap')!=='0';try{localStorage.setItem('ok-tap',on?'1':'0')}catch(e){}return on}
   try{return localStorage.getItem('ok-tap')==='1'}catch(e){return false}})();
+// アニメーションをゆっくりめにする（2026-10-25 試し中。?slow で入る・?slow=0 で切る。このブラウザに覚える）
+//   置く・動かすが 0.28 秒だと、動きとしてほとんど見えなかった。CPU は考える時間とつまんだお菓子を見せる時間も長く
+const SLOW=(()=>{const q=new URLSearchParams(location.search);
+  if(q.has('slow')){const on=q.get('slow')!=='0';try{localStorage.setItem('ok-slow',on?'1':'0')}catch(e){}return on}
+  try{return localStorage.getItem('ok-slow')==='1'}catch(e){return false}})();
+const SP=SLOW?{fly:520,hop:450,next:640,think:1000,pick:650}:{fly:280,hop:280,next:380,think:650,pick:380};
 let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
 const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
 const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
