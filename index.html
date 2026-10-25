@@ -105,6 +105,7 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .pc.mine{cursor:grab}
 .pc.mine:hover .sweet{transform:translateY(-3px) rotate(-4deg);transition:transform .15s}
 .pc.sel .sweet{transform:translateY(-6px) scale(1.12);filter:drop-shadow(0 10px 4px #0000003a);animation:wiggle .6s infinite}
+.pc.ghostpc{opacity:.45;pointer-events:none}   /* 行き先を押したとき：手持ちから置いたときの姿 */
 .pc.pick .sweet{filter:drop-shadow(0 0 6px var(--accent,#ff8a3d));animation:wiggle .6s infinite}   /* 空きマスを先に押したとき、そこへ動かせる自分のお菓子 */
 .pc.lift .sweet{opacity:.25}
 .pc.land .sweet{animation:squish .45s cubic-bezier(.2,1.6,.4,1)}
@@ -562,7 +563,7 @@ function renderStatus(){
     st.innerHTML=`${L(`${nm(S.turn)} の番`,`${whose(S.turn)} turn`)}<span class="sub">${s.online?L('考え中…','thinking…'):L('るすです','away')}${l!==null?L(`（残り${l}秒）`,` (${l}s left)`):''}</span>`}
   else if(inRoom()&&leftSec()!==null){st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${L(`残り${leftSec()}秒`,`${leftSec()}s left`)}</span>`}
   else if(S.sel&&S.sel.kind==='item')st.innerHTML=`${ITEM_INFO[S.sel.k].e} ${ITEM_INFO[S.sel.k].how}<span class="sub">${L('ほかの所を押すとやめる','tap elsewhere to cancel')}</span>`;
-  else if(S.sel&&S.sel.kind==='to')st.innerHTML=L(`ゆれているお菓子を押すと、そのマスへ動くよ<span class="sub">ほかの所を押すとやめる</span>`,`Tap a wiggling sweet to move it there<span class="sub">tap elsewhere to cancel</span>`);
+  else if(S.sel&&S.sel.kind==='to')st.innerHTML=(S.sel.hand&&S.sel.from.length?L('もう一度押すと置く・ゆれているお菓子を押すと動かす','Tap again to place · tap a wiggling sweet to move it'):S.sel.hand?L('もう一度押すと置くよ','Tap again to place'):L('ゆれているお菓子を押すと、そのマスへ動くよ','Tap a wiggling sweet to move it there'))+`<span class="sub">${L('ほかの所を押すとやめる','tap elsewhere to cancel')}</span>`;
   else if(S.sel)st.innerHTML=L(`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`,`Move it to a glowing square<span class="sub">tap again to cancel</span>`);
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${left<=30?L(`あと${left}手で時間切れ`,`time runs out in ${left} moves`):L('お菓子をつまんで動かそう','pick up a sweet and move it')}</span>`}
@@ -583,6 +584,7 @@ function renderBoard(){
       if(S.eating.includes(i))c.classList.add('glow');
     }
     const t=tg.get(i);
+    if(S.sel&&S.sel.kind==='to'&&S.sel.i===i&&S.sel.hand&&v===null)c.insertAdjacentHTML('beforeend',`<div class="pc ghostpc" aria-hidden="true">${sweet(S.turn)}</div>`);
     if(C.party&&S.box&&S.box.at===i&&v===null){c.insertAdjacentHTML('beforeend','<div class="box" aria-hidden="true">🎁</div>');label+=L('（アイテム箱）',' (item box)')}
     if(t==='swap'){c.classList.add('swaptgt');label+=L('（入れかえ）',' (swap)')}else if(t==='item'){c.classList.add('itemtgt');label+=L('（アイテムを使う）',' (use item)')}else if(t)c.classList.add('tgt');
     if(human&&(t||(v===S.turn))){c.tabIndex=0;c.setAttribute('aria-label',label+(t?L(' に動かす',': move here'):L(' を選ぶ',': select')))}else c.setAttribute('aria-label',label);
@@ -814,12 +816,12 @@ function tapCell(e){
   const c=e.target.closest('.cell'),i=c?+c.dataset.i:-1;
   if(S.sel&&S.sel.kind==='to'){   // 行き先を先に押したあと：ゆれているお菓子を押せば動かす。ほかを押せばやめる（そのまま、ふつうの操作として続ける）
     if(S.sel.from.includes(i)){const to=S.sel.i;doAct({t:'move',from:i,to});return true}
+    if(i===S.sel.i&&S.sel.hand){doAct({t:'place',to:i});return true}   // 同じマスをもう一度：手持ちから置く
     S.sel=null;render();return false}
   if(S.sel||i<0||S.cells[i]!==null)return false;
-  if(S.hands[S.turn]>0){doAct({t:'place',to:i});return true}   // 手持ちがあれば、すぐ置く
-  const from=R.geo(C).NB[i].filter(j=>S.cells[j]===S.turn);
-  if(!from.length){showToast(L('手持ちがありません。盤の自分のお菓子を、となりの空きマスへ動かそう',"No sweets in hand. Move one of your sweets on the board to an empty square next to it"));return true}
-  S.sel={kind:'to',i,from};sfx.pick();render();return true;
+  const hand=S.hands[S.turn]>0,from=R.geo(C).NB[i].filter(j=>S.cells[j]===S.turn);
+  if(!hand&&!from.length){showToast(L('手持ちがありません。盤の自分のお菓子を、となりの空きマスへ動かそう',"No sweets in hand. Move one of your sweets on the board to an empty square next to it"));return true}
+  S.sel={kind:'to',i,from,hand};sfx.pick();render();return true;
 }
 function sameSel(a,b){return a&&b&&a.kind===b.kind&&(a.kind==='hand'||a.i===b.i)}
 document.addEventListener('pointerdown',e=>{
@@ -942,7 +944,8 @@ const TSTEPS=[
 ];
 if(EN)TSTEPS_EN.forEach((e,i)=>Object.assign(TSTEPS[i],e));
 // 盤を直接押して置く（2026-10-25 試し中。?tap で入る・?tap=0 で切る。このブラウザに覚える）
-//   何も選んでいないときに空きマスを押すと：手持ちがあればすぐ置く。なければ、そのマスのとなりにある自分のお菓子を光らせ、押したほうをそこへ動かす
+//   何も選んでいないときに空きマスを押すと、そのマスが行き先として光る（手持ちがあってもなくても同じ。すぐには置かない）
+//   そのあと、同じマスをもう一度押せば手持ちから置く。ゆれている自分のお菓子（そのマスのとなり）を押せば、そこへ動かす。ほかを押せばやめる
 const TAP=(()=>{const q=new URLSearchParams(location.search);
   if(q.has('tap')){const on=q.get('tap')!=='0';try{localStorage.setItem('ok-tap',on?'1':'0')}catch(e){}return on}
   try{return localStorage.getItem('ok-tap')==='1'}catch(e){return false}})();
