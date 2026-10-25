@@ -665,7 +665,11 @@ function doAct(a,fromRect,fromServer){
   // 動いた駒をなめらかに運ぶ
   const fly=(i,from,dur)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
     const dx=from.left+from.width/2-(to.left+to.width/2),dy=from.top+from.height/2-(to.top+to.height/2);
-    if(!SLOW||reduced){el.animate([{transform:`translate(${dx}px,${dy}px) scale(1.15)`},{transform:'none'}],{duration:reduced?1:dur,easing:'cubic-bezier(.3,1.35,.5,1)'});return}
+    // 動きを減らす設定の端末（Windows の「アニメーション効果」オフなど）でも、どこからどこへ動いたかは見えるように：はねずに、すーっとすべるだけ
+    //   （前は一瞬で置かれていて、置いた手ごたえがなかった。2026-10-25）
+    //   ?slow は自分で選んで付けた試しなので、この設定でも、はねる動きを出す
+    if(reduced&&!SLOW){el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:dur,easing:'ease-out'});return}
+    if(!SLOW){el.animate([{transform:`translate(${dx}px,${dy}px) scale(1.15)`},{transform:'none'}],{duration:dur,easing:'cubic-bezier(.3,1.35,.5,1)'});return}
     // ?slow：ぴょんと弧を描いて飛び、着地で「むにっ」とつぶれて戻る。着地のところに粉がふわっと
     const h=Math.min(90,26+Math.hypot(dx,dy)*.22);
     el.style.position='relative';el.style.zIndex=5;
@@ -695,7 +699,7 @@ function doAct(a,fromRect,fromServer){
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
   else sfx.drop(p);
-  setTimeout(()=>resolve(p),SW?SW+180:(reduced?120:SP.next));
+  setTimeout(()=>resolve(p),SW?SW+180:SP.next);
 }
 // 入れかえアニメ：自分のお菓子が助走をつけて体当たり → 相手がはじかれて、2つが弧を描いてすれちがう
 function swapAnim(a,p,dropRect,src){
