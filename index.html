@@ -105,6 +105,7 @@ header small{color:var(--muted);font-weight:700;font-size:.85rem}
 .pc.mine{cursor:grab}
 .pc.mine:hover .sweet{transform:translateY(-3px) rotate(-4deg);transition:transform .15s}
 .pc.sel .sweet{transform:translateY(-6px) scale(1.12);filter:drop-shadow(0 10px 4px #0000003a);animation:wiggle .6s infinite}
+.pc.pick .sweet{filter:drop-shadow(0 0 6px var(--accent,#ff8a3d));animation:wiggle .6s infinite}   /* 空きマスを先に押したとき、そこへ動かせる自分のお菓子 */
 .pc.lift .sweet{opacity:.25}
 .pc.land .sweet{animation:squish .45s cubic-bezier(.2,1.6,.4,1)}
 .pc.eat .sweet{animation:eat .55s ease-in forwards}
@@ -510,6 +511,7 @@ const isFixed=i=>R.isLove(S,i);
 function targetsFor(sel){const p=S.turn,t=new Map();
   if(!sel)return t;
   if(sel.kind==='item'){for(const i of R.itemTargets(C,S,sel.k,p))if(i!==null)t.set(i,'item');return t}
+  if(sel.kind==='to'){t.set(sel.i,'move');return t}   // 空きマスを先に押した：そのマスだけ
   if(TUT){const x=tutExpect();if(!x||!tutSrcOk(sel))return t;t.set(x.to,x.t);return t} // あそびかた：決めた1手だけ
   if(sel.kind==='hand'){S.cells.forEach((v,i)=>{if(v===null)t.set(i,'place')})}
   else for(const j of R.geo(C).NB[sel.i]){if(S.cells[j]===null)t.set(j,'move');else if(R.canSwap(S,sel.i,j,p))t.set(j,'swap')}
@@ -560,6 +562,7 @@ function renderStatus(){
     st.innerHTML=`${L(`${nm(S.turn)} の番`,`${whose(S.turn)} turn`)}<span class="sub">${s.online?L('考え中…','thinking…'):L('るすです','away')}${l!==null?L(`（残り${l}秒）`,` (${l}s left)`):''}</span>`}
   else if(inRoom()&&leftSec()!==null){st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${L(`残り${leftSec()}秒`,`${leftSec()}s left`)}</span>`}
   else if(S.sel&&S.sel.kind==='item')st.innerHTML=`${ITEM_INFO[S.sel.k].e} ${ITEM_INFO[S.sel.k].how}<span class="sub">${L('ほかの所を押すとやめる','tap elsewhere to cancel')}</span>`;
+  else if(S.sel&&S.sel.kind==='to')st.innerHTML=L(`ゆれているお菓子を押すと、そのマスへ動くよ<span class="sub">ほかの所を押すとやめる</span>`,`Tap a wiggling sweet to move it there<span class="sub">tap elsewhere to cancel</span>`);
   else if(S.sel)st.innerHTML=L(`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`,`Move it to a glowing square<span class="sub">tap again to cancel</span>`);
   else{const left=MAXMOVES-S.moves;
     st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${left<=30?L(`あと${left}手で時間切れ`,`time runs out in ${left} moves`):L('お菓子をつまんで動かそう','pick up a sweet and move it')}</span>`}
@@ -576,7 +579,7 @@ function renderBoard(){
     if(v!==null){
       const fx=isFixed(i),mine=human&&v===S.turn;
       if(fx){c.classList.add('fixed');label+=L('（恋モード）',' (love mode)')}
-      c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v,'sweet',fx)}</div>`;
+      c.innerHTML=`<div class="pc${mine?' mine':''}${S.sel&&S.sel.kind==='to'&&S.sel.from.includes(i)?' pick':''}${S.sel&&S.sel.kind==='cell'&&S.sel.i===i?' sel':''}${S.eating.includes(i)?' eat':''}" id="pc${i}">${sweet(v,'sweet',fx)}</div>`;
       if(S.eating.includes(i))c.classList.add('glow');
     }
     const t=tg.get(i);
@@ -806,12 +809,25 @@ function trySelTarget(i,fromRect){
   const t=targetsFor(S.sel).get(i);if(!t)return false;
   doAct(t==='place'?{t:'place',to:i}:t==='item'?{t:'item',k:S.sel.k,to:i}:{t,from:S.sel.i,to:i},fromRect);return true;
 }
+// 盤を直接押す（TAP のとき）。扱ったら true
+function tapCell(e){
+  const c=e.target.closest('.cell'),i=c?+c.dataset.i:-1;
+  if(S.sel&&S.sel.kind==='to'){   // 行き先を先に押したあと：ゆれているお菓子を押せば動かす。ほかを押せばやめる（そのまま、ふつうの操作として続ける）
+    if(S.sel.from.includes(i)){const to=S.sel.i;doAct({t:'move',from:i,to});return true}
+    S.sel=null;render();return false}
+  if(S.sel||i<0||S.cells[i]!==null)return false;
+  if(S.hands[S.turn]>0){doAct({t:'place',to:i});return true}   // 手持ちがあれば、すぐ置く
+  const from=R.geo(C).NB[i].filter(j=>S.cells[j]===S.turn);
+  if(!from.length){showToast(L('手持ちがありません。盤の自分のお菓子を、となりの空きマスへ動かそう',"No sweets in hand. Move one of your sweets on the board to an empty square next to it"));return true}
+  S.sel={kind:'to',i,from};sfx.pick();render();return true;
+}
 function sameSel(a,b){return a&&b&&a.kind===b.kind&&(a.kind==='hand'||a.i===b.i)}
 document.addEventListener('pointerdown',e=>{
   ac();if(!canAct())return;
   if(S.sel&&S.sel.kind==='item'){ // アイテムの対象を選んでいるところ
     if(e.target.closest('.itembtn'))return;const c=e.target.closest('.cell');
     if(!(c&&trySelTarget(+c.dataset.i))){S.sel=null;render()}return}
+  if(TAP&&!TUT&&tapCell(e))return;
   const sel=selFromEl(e.target);
   if(sel){drag={sel,x:e.clientX,y:e.clientY,moved:false,ghost:null,src:e.target.closest('.pc,.h'),wasSel:sameSel(S.sel,sel)};e.preventDefault();return}
   // 選択中に空きマス・入れかえ先をタップ
@@ -925,6 +941,11 @@ const TSTEPS=[
   {say:'先に3点取った人の勝ち。いっしょに遊ぶ2人も、同じことをしてくるよ。さあ、CPUと勝負しよう！',face:'hi',final:true},
 ];
 if(EN)TSTEPS_EN.forEach((e,i)=>Object.assign(TSTEPS[i],e));
+// 盤を直接押して置く（2026-10-25 試し中。?tap で入る・?tap=0 で切る。このブラウザに覚える）
+//   何も選んでいないときに空きマスを押すと：手持ちがあればすぐ置く。なければ、そのマスのとなりにある自分のお菓子を光らせ、押したほうをそこへ動かす
+const TAP=(()=>{const q=new URLSearchParams(location.search);
+  if(q.has('tap')){const on=q.get('tap')!=='0';try{localStorage.setItem('ok-tap',on?'1':'0')}catch(e){}return on}
+  try{return localStorage.getItem('ok-tap')==='1'}catch(e){return false}})();
 let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
 const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
 const tutMark=()=>{try{localStorage.setItem('okashi-tut','1')}catch(e){}};
