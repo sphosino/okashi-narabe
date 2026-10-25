@@ -566,7 +566,7 @@ function renderStatus(){
   else if(S.sel&&S.sel.kind==='to')st.innerHTML=(S.sel.hand&&S.sel.from.length?L('もう一度押すと置く・ゆれているお菓子を押すと動かす','Tap again to place · tap a wiggling sweet to move it'):S.sel.hand?L('もう一度押すと置くよ','Tap again to place'):L('ゆれているお菓子を押すと、そのマスへ動くよ','Tap a wiggling sweet to move it there'))+`<span class="sub">${L('ほかの所を押すとやめる','tap elsewhere to cancel')}</span>`;
   else if(S.sel)st.innerHTML=L(`光っているマスに動かしてね<span class="sub">もう一度タップでやめる</span>`,`Move it to a glowing square<span class="sub">tap again to cancel</span>`);
   else{const left=MAXMOVES-S.moves;
-    st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${left<=30?L(`あと${left}手で時間切れ`,`time runs out in ${left} moves`):L('お菓子をつまんで動かそう','pick up a sweet and move it')}</span>`}
+    st.innerHTML=`${L(`${nm(S.turn)} の番！`,`${whose(S.turn)} turn!`)}<span class="sub">${left<=30?L(`あと${left}手で時間切れ`,`time runs out in ${left} moves`):(S.hands[S.turn]>0?L('空いているマスを押しても置けるよ','you can also tap an empty square to place'):L('自分のお菓子を動かそう','move one of your sweets'))}</span>`}
 }
 function renderBoard(){
   const b=$('board');b.style.gridTemplateColumns=b.style.gridTemplateRows=`repeat(${N()},minmax(0,1fr))`;
@@ -665,12 +665,10 @@ function doAct(a,fromRect,fromServer){
   // 動いた駒をなめらかに運ぶ
   const fly=(i,from,dur)=>{const el=$('pc'+i);if(!el||!from||!el.animate)return;const to=el.getBoundingClientRect();
     const dx=from.left+from.width/2-(to.left+to.width/2),dy=from.top+from.height/2-(to.top+to.height/2);
-    // 動きを減らす設定の端末（Windows の「アニメーション効果」オフなど）でも、どこからどこへ動いたかは見えるように：はねずに、すーっとすべるだけ
-    //   （前は一瞬で置かれていて、置いた手ごたえがなかった。2026-10-25）
-    //   ?slow は自分で選んで付けた試しなので、この設定でも、はねる動きを出す
-    if(reduced&&!SLOW){el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:dur,easing:'ease-out'});return}
+    // 動きを減らす設定の端末（Windows の「アニメーション効果」オフなど）でも、同じ動きを出す（2026-10-25）
+    //   前はその端末では一瞬で置かれていて、置いた手ごたえがなかった。0.4 秒の短い動きで点滅もないので、みんな同じにする
     if(!SLOW){el.animate([{transform:`translate(${dx}px,${dy}px) scale(1.15)`},{transform:'none'}],{duration:dur,easing:'cubic-bezier(.3,1.35,.5,1)'});return}
-    // ?slow：ぴょんと弧を描いて飛び、着地で「むにっ」とつぶれて戻る。着地のところに粉がふわっと
+    // ぴょんと弧を描いて飛び、着地で「むにっ」とつぶれて戻る。着地のところに粉がふわっと
     const h=Math.min(90,26+Math.hypot(dx,dy)*.22);
     el.style.position='relative';el.style.zIndex=5;
     el.animate([
@@ -683,7 +681,7 @@ function doAct(a,fromRect,fromServer){
   if(a.t==='place')fly(a.to,fromRect||trayRect(),SP.fly);
   else if(a.t==='move')fly(a.to,fromRect||srcRects.from,SP.hop);
   const SW=a.t==='swap'?swapAnim(a,p,fromRect,srcRects):0; // 入れかえはぶつかって弧を描いて交換（ms）
-  if(!SLOW||SW)setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},SW||(reduced?0:SP.fly-20));   // ?slow の置く・動かすは、飛ぶ動きの中でつぶれるので、land はつけない
+  if(!SLOW||SW)setTimeout(()=>{const el=$('pc'+a.to);if(el)el.classList.add('land')},SW||SP.fly-20);   // 置く・動かすは、飛ぶ動きの中でつぶれるので、land はつけない
   if(a.t==='swap'){setTimeout(()=>{
       // 着地したら、ぶつけられたお菓子の顔とマスを新しいモードに切りかえる
       const vc=$('c'+a.from),vp=$('pc'+a.from);
@@ -698,7 +696,7 @@ function doAct(a,fromRect,fromServer){
         text(pt.x,pt.y-28,L('ドキッ','Swoon!'),cssv('--p0'),24,60);if(S.moves%2===0)cpuReact(a.victim,'doki');burst(pt.x,pt.y,{n:14,speed:3.2,colors:['#ff2f6d','#ff9dbd','#fff'],kinds:['heart']});
         [880,1175].forEach((f,k)=>tone(f,.18,{type:'sine',vol:.1,delay:k*.09}));
       }},SW)}
-  else if(SLOW&&(a.t==='place'||a.t==='move'))setTimeout(()=>sfx.drop(p),(a.t==='place'?SP.fly:SP.hop)*.8);   // ?slow：音は着地（つぶれる瞬間）に合わせる
+  else if(SLOW&&(a.t==='place'||a.t==='move'))setTimeout(()=>sfx.drop(p),(a.t==='place'?SP.fly:SP.hop)*.8);   // 音は着地（つぶれる瞬間）に合わせる
   else sfx.drop(p);
   setTimeout(()=>resolve(p),SW?SW+180:SP.next);
 }
@@ -959,17 +957,14 @@ const TSTEPS=[
   {say:'先に3点取った人の勝ち。いっしょに遊ぶ2人も、同じことをしてくるよ。さあ、CPUと勝負しよう！',face:'hi',final:true},
 ];
 if(EN)TSTEPS_EN.forEach((e,i)=>Object.assign(TSTEPS[i],e));
-// 盤を直接押して置く（2026-10-25 試し中。?tap で入る・?tap=0 で切る。このブラウザに覚える）
+// 盤を直接押して置く（2026-10-25）
 //   何も選んでいないときに空きマスを押すと、そのマスが行き先として光る（手持ちがあってもなくても同じ。すぐには置かない）
 //   そのあと、同じマスをもう一度押せば手持ちから置く。ゆれている自分のお菓子（そのマスのとなり）を押せば、そこへ動かす。ほかを押せばやめる
-const TAP=(()=>{const q=new URLSearchParams(location.search);
-  if(q.has('tap')){const on=q.get('tap')!=='0';try{localStorage.setItem('ok-tap',on?'1':'0')}catch(e){}return on}
-  try{return localStorage.getItem('ok-tap')==='1'}catch(e){return false}})();
-// アニメーションをゆっくりめにする（2026-10-25 試し中。?slow で入る・?slow=0 で切る。このブラウザに覚える）
-//   置く・動かすが 0.28 秒だと、動きとしてほとんど見えなかった。CPU は考える時間とつまんだお菓子を見せる時間も長く
-const SLOW=(()=>{const q=new URLSearchParams(location.search);
-  if(q.has('slow')){const on=q.get('slow')!=='0';try{localStorage.setItem('ok-slow',on?'1':'0')}catch(e){}return on}
-  try{return localStorage.getItem('ok-slow')==='1'}catch(e){return false}})();
+//   あそびかたの間は使わない（説明は、手持ちをつまんで運ぶ形のまま）
+const TAP=true;
+// 置く・動かすの動き（2026-10-25）：0.28 秒だと動きとしてほとんど見えなかったので、0.4 秒でぴょんと弧を描いて飛び、着地で「むにっ」とつぶれる
+//   CPU は、考える時間とつまんだお菓子を見せる時間も長く（だれが何をしたか目で追えるように）
+const SLOW=true;
 const SP=SLOW?{fly:400,hop:400,next:520,think:1000,pick:650}:{fly:280,hop:280,next:380,think:650,pick:380};
 let TUT=null; // {i:手順の番号（-1 は「はじめて？」）, phase:'ask'|'do'|'done', saved:元の設定}
 const tutSeen=()=>{try{return !!localStorage.getItem('okashi-tut')}catch(e){return true}};
