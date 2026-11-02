@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "okashi-core"
 version = "0.1.0"
+
+[[package]]
+name = "okashi-mcts"
+version = "0.1.0"
+dependencies = [
+ "okashi-core",
+]

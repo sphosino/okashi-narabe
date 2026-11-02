@@ -1,0 +1,8 @@
+[package]
+name = "okashi-mcts"
+version = "0.1.0"
+edition = "2021"
+description = "おかしならべの3人用MCTS・評価器・比較用エージェント"
+
+[dependencies]
+okashi-core = { path = "../core" }
