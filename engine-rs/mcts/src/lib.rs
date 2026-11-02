@@ -5,11 +5,13 @@
 //! - 推論をまとめられるように、探索は「葉を選ぶ（[`Search::select`]）」と「評価を反映する（[`Search::expand`]）」に分けてある。
 
 pub mod agents;
+pub mod cpu;
 pub mod eval;
 pub mod rng;
 pub mod search;
 
 pub use agents::{Agent, MctsAgent, RandomAgent};
+pub use cpu::{Cpu, CpuAgent, Level};
 pub use eval::{EvalOut, Evaluator, RolloutEval};
 pub use rng::Rng;
 pub use search::{settle, Leaf, Search, SearchConfig};

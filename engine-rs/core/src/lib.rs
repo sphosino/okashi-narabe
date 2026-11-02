@@ -425,6 +425,18 @@ impl Rules {
         ns
     }
 
+    /// ①②だけ（番は進めない）。CPU の読み用（cpu.js の applyOn）。3つめは食べる前の盤
+    pub fn act_eat(&self, st: &State, a: &Action, p: u8) -> (State, StepInfo, [u8; CELLS]) {
+        let mut info = StepInfo::default();
+        let (s, lt) = self.act(st, a, p, &mut info);
+        let before = s.cells;
+        if let Action::Item { .. } = a {
+            return (s, info, before);
+        }
+        let s = self.eat(s, p, lt, &mut info);
+        (s, info, before)
+    }
+
     /// ①②③をまとめて1手。アイテムでは番は進まない
     pub fn step(&self, st: &State, a: &Action) -> (State, StepInfo) {
         let mut info = StepInfo::default();

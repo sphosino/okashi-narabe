@@ -39,6 +39,8 @@ pub struct SetState {
     pub totals: [i32; 3],
     /// セットが終わった
     pub over: bool,
+    /// いちばん最近終わった局の最後の点
+    pub last_scores: [i32; 3],
 }
 
 /// セットのルール（局のルール＋セットの決まり）
@@ -56,8 +58,13 @@ impl SetRules {
         self.rules.new_state(self.set.hand, (self.set.first + idx) % 3, seed.wrapping_add(idx as u32 * 7919))
     }
 
+    /// 終わった局の数
+    pub fn games_done(s: &SetState) -> usize {
+        s.game_idx as usize + s.over as usize
+    }
+
     pub fn initial(&self, seed: u32) -> SetState {
-        SetState { game: self.game_start(0, seed), game_idx: 0, totals: [0; 3], over: false }
+        SetState { game: self.game_start(0, seed), game_idx: 0, totals: [0; 3], over: false, last_scores: [0; 3] }
     }
 
     pub fn actions(&self, s: &SetState) -> Vec<Action> {
@@ -87,6 +94,7 @@ impl SetRules {
     }
 
     fn end_game(&self, ns: &mut SetState, winners: &[u8]) {
+        ns.last_scores = ns.game.scores;
         for q in 0..3 {
             ns.totals[q] += ns.game.scores[q] * UNIT;
         }
