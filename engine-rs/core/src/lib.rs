@@ -4,10 +4,12 @@
 //! - cells：0/1/2（誰のお菓子か）か EMPTY
 //! - fixed：恋モードのお菓子がいるマス（rules.js と同じ並び順を保つ）
 //! - 状態は書きかえず、いつも新しい状態を返す
-//! - セット形式・ネットに渡す形・方策の番号は set.rs
+//! - セット形式・ネットに渡す形・方策の番号は set.rs、ネットの入力チャンネルは features.rs
 
 pub mod set;
 pub use set::*;
+pub mod features;
+pub use features::{planes, IN_CHANNELS, PLANES_LEN};
 
 pub const EMPTY: u8 = 255;
 pub const MAX_MOVES: u32 = 150;

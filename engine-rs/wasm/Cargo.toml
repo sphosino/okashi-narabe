@@ -1,0 +1,12 @@
+[package]
+name = "okashi-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "ブラウザ版の探索（WebAssembly）。推論はブラウザの ONNX Runtime Web が行い、探索・ルール・入力作りをここで動かす"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+okashi-core = { path = "../core" }
+okashi-mcts = { path = "../mcts" }

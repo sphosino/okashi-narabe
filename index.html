@@ -284,7 +284,7 @@ a.roomrow:hover,a.roomrow:focus-visible{border-color:var(--p0);outline:none}
   <div class="invitebox" id="invitePanel" hidden></div>
   <div class="controls">
     <label for="level">CPU
-      <select id="level"><option value="easy" data-en="Easy">やさしい</option><option value="normal" selected data-en="Normal">ふつう</option><option value="hard" data-en="Hard">つよい</option></select>
+      <select id="level"><option value="easy" data-en="Easy">やさしい</option><option value="normal" selected data-en="Normal">ふつう</option><option value="hard" data-en="Hard">つよい</option><option value="ai" data-en="Learning AI (beta)">学習AI（ためし）</option></select>
     </label>
     <span class="plabel" data-en="Rules">ルール</span><div class="presets" role="group" aria-label="ルール" data-en-label="Rules"><button type="button" data-p="normal" data-en="Normal">ふつう</button><button type="button" data-p="quick" data-en="Quick">さくっと</button><button type="button" data-p="deep" data-en="Long">じっくり</button><button type="button" data-p="party" data-en="Party">わいわい</button></div>
     <details class="custom"><summary data-en="Custom">自分で決める</summary><div class="customrow">
@@ -885,9 +885,24 @@ document.addEventListener('keydown',e=>{
 });
 
 // ================= CPU（中身は cpu.js） =================
+// 学習AI（web/ai.js。読みは WebAssembly、ネットは ONNX Runtime Web）。最初に選んだときに読み込む。
+//   学習したのは4つ・5つ並べ、わいわいなしだけなので、3つ並べ・わいわいでは「つよい」が代わりに打つ
+let aiBusy=false,aiLoad=null;
+const aiOK=()=>!C.party&&C.need>=4;
+const loadScript=src=>new Promise((ok,ng)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=ng;document.head.appendChild(e)});
+const loadAI=()=>aiLoad||(aiLoad=loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.js').then(()=>loadScript('web/ai.js?v=20261103')).then(()=>OkashiAI.init()));
 function cpuTurn(){
   if(inRoom()){roomCpu();return}
-  const p=S.turn,best=CPU.choose(C,S,p,S.level);if(!best){endTurn();return}
+  const p=S.turn;
+  if(S.level==='ai'&&aiOK()){
+    if(aiBusy)return;aiBusy=true;const mv=S.moves;
+    loadAI().then(()=>OkashiAI.think(C,S,{hand:handSize()})).catch(e=>{console.error('学習AI',e);return CPU.choose(C,S,p,'hard')})
+      .then(best=>{aiBusy=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv){if(best)cpuPlay(best,p);else endTurn()}else render()});
+    return}
+  const best=CPU.choose(C,S,p,S.level==='ai'?'hard':S.level);if(!best){endTurn();return}
+  cpuPlay(best,p);
+}
+function cpuPlay(best,p){
   if(best.t!=='place'){const el=$('pc'+best.from);if(el)el.classList.add('sel');sfx.pick();
     const mv=S.moves;cpuPending=true;
     setTimeout(()=>{cpuPending=false;if(alive()&&!S.busy&&!S.over&&S.turn===p&&S.moves===mv)doAct(best)},reduced?50:SP.pick)}
