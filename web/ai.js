@@ -31,7 +31,9 @@
       ort.env.wasm.wasmPaths = o.ortWasmPaths || "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
       // GPU が本当に使えるかを先に確かめる（ONNX Runtime Web 1.30.0 では、WebGPU で作るのに失敗すると CPU でも作れなくなるため）
       let gpuOk = false;
-      if ("gpu" in navigator && !o.forceCpu) {
+      // WebGPU ではこのネットの出力が壊れる（2026-11-04、ONNX Runtime Web 1.30.0。PyTorch との差が 7〜9。CPU なら 1e-6）。?gpu を付けたときだけ試す
+      const tryGpu = o.gpu ?? new URLSearchParams(global.location ? global.location.search : "").has("gpu");
+      if ("gpu" in navigator && tryGpu && !o.forceCpu) {
         try { gpuOk = !!(await navigator.gpu.requestAdapter()); } catch (e) { gpuOk = false; }
       }
       let lastErr = null;
