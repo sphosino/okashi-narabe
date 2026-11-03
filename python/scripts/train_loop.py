@@ -34,6 +34,9 @@ def parse():
     p.add_argument("--visits-fast", type=int, default=80)
     p.add_argument("--full-prob", type=float, default=0.25)
     p.add_argument("--temp-plies", type=int, default=8, help="各局の最初のこの手数は、訪問数に比例して手を選ぶ")
+    p.add_argument("--mix-sets", type=int, default=0, help="1世代のうち、CPU などを混ぜた席で指すセットの数（sets-per-gen とは別に足す）")
+    p.add_argument("--mix-seats", nargs="+", default=["net:0,net:0,cpu:hard", "net:0,cpu:hard,cpu:hard"],
+                   help="混ぜるときの席（カンマ区切り3つ）。mix-sets を等分し、席はセットごとに回す。学習データは net:0 の手番だけ")
     p.add_argument("--train-ratio", type=float, default=1.0, help="1世代の学習サンプル数 ÷ 新しく増えた局面数")
     p.add_argument("--batch", type=int, default=256)
     p.add_argument("--lr", type=float, default=0.02)
@@ -105,6 +108,21 @@ def main():
         n_new = len(d["states"])
         log(f"世代{gen} 自己対局：{len(d['g_id'])}セット・{n_new}局面・1セット平均 {d['g_plies'].mean():.0f}手 "
             f"（{time.time()-t0:.0f}秒、{stats['evals_per_sec']:.0f}評価/秒）")
+        # CPU などを混ぜたセット（席の型ごとに別のシャード）
+        for k, seats in enumerate(a.mix_seats):
+            n = a.mix_sets // len(a.mix_seats)
+            if n <= 0:
+                continue
+            t0 = time.time()
+            drv = okashi_rs.Driver(min(a.parallel, n), n, seats.split(","), rotate=True, record=True, visits_full=a.visits_full,
+                                   visits_fast=a.visits_fast, full_prob=a.full_prob, temp_plies=a.temp_plies,
+                                   seed=a.seed * 100_003 + gen + 7_919 * (k + 1), **rule_kw(a))
+            m = D.decode(run_driver(drv, {0: model}, dev))
+            D.save(os.path.join(root, "selfplay", f"gen{gen:04d}_m{k}.npz"), m)
+            n_new += len(m["states"])
+            u = m["g_utility"][m["g_seat_net"] == 0]
+            log(f"世代{gen} 混ぜた対局 {seats}：{len(m['g_id'])}セット・{len(m['states'])}局面・学習AIの順位点の平均 {u.mean()*100:.1f}% "
+                f"（{time.time()-t0:.0f}秒）")
 
         # 学習（直近の局面 window ぶん）
         shards, total = [], 0
