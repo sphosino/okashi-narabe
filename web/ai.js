@@ -1,5 +1,5 @@
 // ブラウザだけで動く学習AI（サーバーなし。三人将棋の web/ai.js と同じ形）。
-// 探索・ルール・入力作りは WebAssembly（engine-rs/wasm）、ネットの推論は ONNX Runtime Web（WebGPU、使えなければ CPU）。
+// 探索・ルール・入力作りは WebAssembly（engine-rs/wasm）、ネットの推論は ONNX Runtime Web（WebGPU で1手1000回、使えなければ CPU で200回）。
 // 使い方：await OkashiAI.init();
 //         const a = await OkashiAI.think(cfg, st, { hand });  // a は rules.js の手（R.actions の1つ）
 // 1局を「1局制のセット」として読む（勝ちボーナス1点、a=0。1位になることだけを目指す）。
@@ -31,20 +31,24 @@
       ort.env.wasm.wasmPaths = o.ortWasmPaths || "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
       // GPU が本当に使えるかを先に確かめる（ONNX Runtime Web 1.30.0 では、WebGPU で作るのに失敗すると CPU でも作れなくなるため）
       let gpuOk = false;
-      // WebGPU ではこのネットの出力が壊れる（2026-11-04、ONNX Runtime Web 1.30.0。PyTorch との差が 7〜9。CPU なら 1e-6）。?gpu を付けたときだけ試す
-      const tryGpu = o.gpu ?? new URLSearchParams(global.location ? global.location.search : "").has("gpu");
+      // WebGPU は、入力チャンネルが4の倍数でない畳み込みの答えを間違える（ONNX Runtime Web 1.30.0）。
+      // export_onnx.py で入力を48チャンネルにふくらませて書き出した重みなら正しく動く（2026-11-05、CPU との差 1e-5）。?cpu を付けると CPU だけで動かす
+      const tryGpu = o.gpu ?? !new URLSearchParams(global.location ? global.location.search : "").has("cpu");
       if ("gpu" in navigator && tryGpu && !o.forceCpu) {
         try { gpuOk = !!(await navigator.gpu.requestAdapter()); } catch (e) { gpuOk = false; }
       }
       let lastErr = null;
       for (const p of gpuOk ? ["webgpu", "wasm"] : ["wasm"]) {
-        try { this.sess = await ort.InferenceSession.create(o.model, { executionProviders: [p] }); this.provider = p; break; }
+        // ?p48：48チャンネル版に書き出し直した重み（前の版がブラウザに残っていても読み直させる）
+        try { this.sess = await ort.InferenceSession.create(o.model + "?p48", { executionProviders: [p] }); this.provider = p; break; }
         catch (e) { lastErr = e; }
       }
       if (!this.sess) throw lastErr || new Error("ネットを読み込めませんでした");
       this.model = o.model.split("/").pop().replace(/\.onnx$/, "");
       if (this.provider === "wasm") { this.visits = o.cpuVisits || 200; this.batch = 8; }
       else { this.visits = o.visits || 1000; this.batch = 16; }
+      // 1手にかける時間の上限（遅い GPU で待たせすぎないため）
+      this.timeMs = o.timeMs ?? 5000;
       // 準備運転（最初の推論は遅いので、ここで済ませておく）
       for (const n of [1, this.batch]) await this.sess.run({ planes: new ort.Tensor("float32", new Float32Array(n * PLANES), [n, 45, 9, 9]) });
       this.ready = true;
@@ -106,7 +110,8 @@
           new Float32Array(w.memory.buffer, bufP, k * NUM_POLICY).set(pol);
           new Float32Array(w.memory.buffer, bufR, k * 9).set(rank);
           w.search_submit(ctx, bufP, bufR);
-          if (o.timeMs > 0 && performance.now() - t0 >= o.timeMs) break;
+          const limit = o.timeMs ?? this.timeMs;
+          if (limit > 0 && performance.now() - t0 >= limit) break;
         }
         const n = w.search_result(ctx);
         const visits = Array.from(new Uint32Array(w.memory.buffer, w.search_visits_ptr(ctx), n));

@@ -19,13 +19,30 @@ from okashiml.features import IN_CHANNELS, planes  # noqa: E402
 
 
 class Wrapped(torch.nn.Module):
+    """入力を 48 チャンネルにふくらませてから通す。
+    ONNX Runtime Web 1.30.0 の WebGPU は、入力チャンネルが 4 の倍数でない畳み込み（ここでは 45）の答えを間違える（2026-11-05、CPU との差 8）。
+    最初の畳み込みの重みを 0 で 48 チャンネルに広げ、入力も 0 で埋めると CPU と 1e-5 で一致する。"""
+
     def __init__(self, net):
         super().__init__()
         self.net = net
+        c = net.stem[0]
+        self.pad = (-c.in_channels) % 4
+        self.stem = torch.nn.Conv2d(c.in_channels + self.pad, c.out_channels, 3, padding=1, bias=False)
+        with torch.no_grad():
+            self.stem.weight.zero_()
+            self.stem.weight[:, : c.in_channels] = c.weight
 
     def forward(self, x):
-        out = self.net(x)
-        return out["policy"], out["rank"]
+        net = self.net
+        x = torch.nn.functional.pad(x, (0, 0, 0, 0, 0, self.pad))
+        h = net.stem[2](net.stem[1](self.stem(x)))
+        for b in net.trunk:
+            h = b(h)
+        p = net.p1(h)
+        policy = torch.cat([net.p2(p).flatten(1), net.pg(M.gpool(p))], dim=1)
+        v = net.vfc(M.gpool(net.v1(h)))
+        return policy, net.rank(v).view(-1, 3, 3)
 
 
 def main():
