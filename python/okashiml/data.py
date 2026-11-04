@@ -27,6 +27,7 @@ _DTYPES = {
     "g_seat_net": (np.uint8, (-1, 3)),
     "g_plies": (np.uint32, (-1,)),
     "g_cfg": (np.uint8, (-1, 12)),
+    "g_gain": (np.uint32, (-1, 3, 5)),
 }
 
 

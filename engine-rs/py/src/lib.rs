@@ -124,6 +124,8 @@ struct SetGame {
     /// 局ごとの最後の点（局の番号順）
     game_scores: Vec<[i32; 3]>,
     plies: u32,
+    /// 席ごとに、1手で自分に入った点が 0・1・2・3以上 だった手の数と、相手に点を入れた手の数
+    gains: [[u32; 5]; 3],
     rng: Rng,
 }
 
@@ -176,6 +178,7 @@ impl Driver {
             records: Vec::new(),
             record: self.record,
             game_scores: Vec::new(),
+            gains: [[0; 5]; 3],
             plies: 0,
             rng: Rng::new(seed ^ 0xABCDEF),
         })
@@ -243,7 +246,13 @@ impl Driver {
     }
 
     fn play(g: &mut SetGame, act: Action) {
-        let (ns, _) = g.sr.step(&g.s, &act);
+        let p = g.s.game.turn as usize;
+        let (ns, info) = g.sr.step(&g.s, &act);
+        let mine = info.gain[p].max(0) as usize;
+        g.gains[p][mine.min(3)] += 1;
+        if (0..3).any(|q| q != p && info.gain[q] > 0) {
+            g.gains[p][4] += 1;
+        }
         g.plies += 1;
         g.s = settle(&g.sr, ns);
         // 局が終わったら、その局の最後の点を残す（settle で続けて終わった局も同じ点で埋める。めったにない）
@@ -398,6 +407,7 @@ impl Driver {
     ///   rank [N,3,3] f32（各席の最終順位の割合。同点は分け合う）/ root_value [N,3] / game_score [N,3] u8（その局の最後の点）/ set_id [N] u32
     ///   g_id u32 / g_totals [G,3] i32（UNIT 倍）/ g_utility [G,3] f32 / g_seat_net [G,3] i8 / g_plies u32
     ///   g_cfg [G,12] u8（盤・並べる数・手持ち・目標点・恋ボーナス・わいわい・局数・勝ちボーナス・1局目の先手・a×100 ×3）
+    ///   g_gain [G,3,5] u32（席ごとに、1手で自分に入った点が 0・1・2・3以上 の手の数、相手に点を入れた手の数）
     fn take_finished<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let games = std::mem::take(&mut self.finished);
         let d = PyDict::new_bound(py);
@@ -407,6 +417,7 @@ impl Driver {
         let (mut full, mut rank, mut root_v, mut game_score, mut set_id) = (Vec::new(), Vec::<f32>::new(), Vec::new(), Vec::new(), Vec::new());
         let (mut g_id, mut g_totals, mut g_util, mut g_seat, mut g_plies, mut g_cfg) =
             (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut g_gain: Vec<u32> = Vec::new();
         for g in &games {
             let rs = SetRules::rank_share(&g.s.totals);
             for r in &g.records {
@@ -438,6 +449,9 @@ impl Driver {
                 });
             }
             g_plies.push(g.plies);
+            for q in 0..3 {
+                g_gain.extend_from_slice(&g.gains[q]);
+            }
             let (c, st) = (&g.sr.rules.cfg, &g.sr.set);
             g_cfg.extend_from_slice(&[c.size as u8, c.need as u8, st.hand as u8, c.target as u8, c.love_bonus as u8, c.party as u8, st.games, st.win_bonus as u8, st.first]);
             g_cfg.extend(st.a.iter().map(|&a| (a * 100.0).round() as u8));
@@ -457,6 +471,7 @@ impl Driver {
         d.set_item("g_seat_net", PyBytes::new_bound(py, &g_seat))?;
         d.set_item("g_plies", PyBytes::new_bound(py, &le(&g_plies, u32::to_le_bytes)))?;
         d.set_item("g_cfg", PyBytes::new_bound(py, &g_cfg))?;
+        d.set_item("g_gain", PyBytes::new_bound(py, &le(&g_gain, u32::to_le_bytes)))?;
         Ok(d)
     }
 }
