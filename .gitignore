@@ -2,4 +2,4 @@ runs/
 __pycache__/
 *.pyc
 web/models/*
-!web/models/r3-gen0066.onnx
+!web/models/r3-gen0106.onnx

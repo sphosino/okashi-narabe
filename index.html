@@ -890,7 +890,7 @@ document.addEventListener('keydown',e=>{
 let aiBusy=false,aiLoad=null;
 const aiOK=()=>!C.party&&C.need>=4;
 const loadScript=src=>new Promise((ok,ng)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=ng;document.head.appendChild(e)});
-const loadAI=()=>aiLoad||(aiLoad=loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.js').then(()=>loadScript('web/ai.js?v=20261105b')).then(()=>OkashiAI.init()));
+const loadAI=()=>aiLoad||(aiLoad=loadScript('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.js').then(()=>loadScript('web/ai.js?v=20261106')).then(()=>OkashiAI.init()));
 function cpuTurn(){
   if(inRoom()){roomCpu();return}
   const p=S.turn;
