@@ -26,6 +26,7 @@ def main():
     p.add_argument("--parallel", type=int, default=300)
     p.add_argument("--visits", type=int, default=200)
     p.add_argument("--seed", type=int, default=7)
+    p.add_argument("--games", type=int, nargs="+", default=[1, 3], help="セットの局数のくじ引き（学習と同じにそろえる）")
     a = p.parse_args()
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     models = {0: M.load(os.path.join("runs", a.run, "models", f"gen{a.gen:04d}.pt"), dev).eval()}
@@ -34,7 +35,7 @@ def main():
         models[1] = M.load(os.path.join("runs", a.run, "models", f"gen{int(a.vs[4:]):04d}.pt"), dev).eval()
         other = "net:1"
     drv = okashi_rs.Driver(min(a.parallel, a.sets), a.sets, ["net:0", other, other], rotate=True, record=False,
-                           visits_full=a.visits, full_prob=1.0, temp_plies=0, dirichlet_total=0.0, seed=a.seed)
+                           visits_full=a.visits, full_prob=1.0, temp_plies=0, dirichlet_total=0.0, seed=a.seed, games=a.games)
     e = D.decode(run_driver(drv, models, dev))
     u = e["g_utility"][e["g_seat_net"] == 0]
     cfg = e["g_cfg"]

@@ -10,7 +10,7 @@
 
   // 使う重み。ページの URL に ?ai=r3-gen0016 のように付けると、web/models/ の別の重みを使う（手元で試すとき）
   const q = new URLSearchParams(global.location ? global.location.search : "").get("ai");
-  const DEFAULT_MODEL = "web/models/" + (q && /^[\w-]+$/.test(q) ? q : "r3-gen0106") + ".onnx";
+  const DEFAULT_MODEL = "web/models/" + (q && /^[\w-]+$/.test(q) ? q : "r3-gen0130") + ".onnx";
 
   const OkashiAI = {
     ready: false,
